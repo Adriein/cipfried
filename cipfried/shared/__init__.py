@@ -1,1 +1,1 @@
-from cipfried.shared.constants import EngineState, EngineCommand, ClientPacketType, ServerPacketType, TIBIA_SERVER_PORT
+from cipfried.shared.constants import EngineState, EngineCommand, TIBIA_SERVER_PORT

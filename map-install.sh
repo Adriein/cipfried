@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+TIBIA_DIR="${XDG_DATA_HOME:-"${HOME}/.local/share"}/CipSoft GmbH/Tibia/packages/Tibia";
+
+mkdir -p "${TIBIA_DIR}";
+
+case "${1}" in
+	--grid)
+		echo 'Downloading & extracting `minimap-with-grid-overlay-and-markers.zip`…';
+		url='https://tibiamaps.io/downloads/minimap-with-grid-overlay-and-markers';
+		;;
+	--grid-no-markers)
+		echo 'Downloading & extracting `minimap-with-grid-overlay-without-markers.zip`…';
+		url='https://tibiamaps.io/downloads/minimap-with-grid-overlay-without-markers';
+		;;
+	--no-markers)
+		echo 'Downloading & extracting `minimap-without-markers.zip`…';
+		url='https://tibiamaps.io/downloads/minimap-without-markers';
+		;;
+	--grid-poi-markers)
+		echo 'Downloading & extracting `minimap-with-grid-overlay-and-poi-markers.zip`…';
+		url='https://tibiamaps.io/downloads/minimap-with-grid-overlay-and-poi-markers';
+		;;
+	*)
+		echo 'Downloading & extracting `minimap-with-markers.zip`…';
+		url='https://tibiamaps.io/downloads/minimap-with-markers';
+		;;
+esac;
+
+zip_file_name="$(mktemp)";
+
+curl --progress-bar --location "${url}" > "${zip_file_name}";
+
+unzip -o -d "${TIBIA_DIR}" "${zip_file_name}";
+
+rm "${zip_file_name}";

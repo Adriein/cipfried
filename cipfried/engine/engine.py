@@ -5,7 +5,6 @@ import keyboard
 from cipfried.os import Process, Memory, Video
 from cipfried.shared import EngineState, EngineCommand
 
-
 class Engine:
     def __init__(self):
         self._game = Process(Memory(), Video())
@@ -25,7 +24,7 @@ class Engine:
 
             time.sleep(0.5)
 
-        # video_stream = self._game.capture_video()
+        video_stream = self._game.capture_video()
 
         while self._state is EngineState.Running:
             time.sleep(0.01)
