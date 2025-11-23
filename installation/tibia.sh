@@ -113,7 +113,16 @@ if [[ $apt_update_needed -eq 1 ]]; then
     apt-get update -y
 fi
 
-apt-get install -y libpcre2-16-0 libglib2.0-0 libgtk-3-0 libx11-xcb1 libxcb-xinerama0 libxcb-xfixes0 libxcb-shape0 libxcb-randr0 libxcb-render-util0 libevent-2.1-7
+apt-get install -y libpcre2-16-0 \
+  libglib2.0-0 \
+  libgtk-3-0 \
+  libx11-xcb1 \
+  libxcb-xinerama0 \
+  libxcb-xfixes0 \
+  libxcb-shape0 \
+  libxcb-randr0 \
+  libxcb-render-util0 \
+  libevent-2.1-7
 
 # Some older Tibia versions still look for the old lib name → symlink
 if [[ ! -e /usr/lib/x86_64-linux-gnu/libpcre.so.3 ]] && [[ -e /usr/lib/x86_64-linux-gnu/libpcre2-16.so.0 ]]; then

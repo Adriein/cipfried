@@ -5,3 +5,4 @@ numpy
 mss
 pyautogui
 pyscreenshot
+Pillow

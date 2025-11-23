@@ -1,11 +1,12 @@
+import os
 from typing import Optional
 
 import numpy as np
 import mss
+import pyscreenshot as ImageGrab
 import threading
 import queue
 
-#import pyautogui
 from numpy import ndarray
 
 
@@ -14,6 +15,7 @@ class Video:
         self.stream: VideoStream = VideoStream()
         self._running = False
         self._thread = None
+        self._is_wayland = False
 
         #screen_width, screen_height = pyautogui.size()
         self.monitor = {
@@ -42,6 +44,19 @@ class Video:
             self._thread = None
 
     def _capture_worker(self):
+        self._is_wayland = os.getenv('XDG_SESSION_TYPE').lower() == 'wayland'
+
+        if self._is_wayland:
+            while self._running:
+                width, height = ImageGrab.grab(bbox=(0, 0, 1, 1)).size
+
+                img = ImageGrab.grab(bbox=(0, 0, width, height), childprocess=False)
+
+                frame = np.array(img)[:, :, :3]
+                self.stream.put_frame(frame)
+
+                return
+
         with mss.mss() as sct:
             while self._running:
                 sct_img = sct.grab(self.monitor)
