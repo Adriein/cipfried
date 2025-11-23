@@ -13,7 +13,7 @@ class Engine:
     def start(self):
         self._state = EngineState.Running
 
-        self._set_stop_handler()
+        #self._set_stop_handler()
 
         self._game.hook()
 

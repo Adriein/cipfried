@@ -26,14 +26,19 @@ class Video:
     def start(self):
         if self._running:
             return
+
         self._running = True
+
         self._thread = threading.Thread(target=self._capture_worker, daemon=True)
+
         self._thread.start()
 
     def stop(self):
         self._running = False
+
         if self._thread:
             self._thread.join(timeout=1)
+
             self._thread = None
 
     def _capture_worker(self):
@@ -51,7 +56,7 @@ class Video:
 
 class VideoStream:
     def __init__(self):
-        self._stream: queue.Queue[np.ndarray] = queue.Queue(maxsize=20)
+        self._stream: queue.Queue[np.ndarray] = queue.Queue(maxsize=1)
 
     def put_frame(self, frame: ndarray) -> None:
         try:
