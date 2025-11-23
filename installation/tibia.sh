@@ -56,7 +56,7 @@ log "Starting Tibia installation as root"
 # ----------------------------------------------------------------------
 # Configuration (easy to tweak)
 # ----------------------------------------------------------------------
-readonly INSTALL_DIR="${XDG_DATA_HOME:-"${HOME}/.local/share"}"
+readonly INSTALL_DIR="/opt/Tibia"
 readonly DESKTOP_FILE="/usr/share/applications/Tibia.desktop"
 readonly DOWNLOAD_URL="https://static.tibia.com/download/tibia.x64.tar.gz"
 readonly TEMP_DIR="$(mktemp -d -t tibia-install-XXXXXXXXXX)"
@@ -97,10 +97,11 @@ fi
 
 log "Installing Tibia to $INSTALL_DIR"
 mv "$TEMP_DIR/Tibia" "$INSTALL_DIR"
-chmod +x "$INSTALL_DIR/start-tibia-launcher.sh"
+
+chmod +x "$INSTALL_DIR/Tibia"
 
 # ----------------------------------------------------------------------
-# 3. Install modern dependencies (no more libssl1.0-dev!)
+# 3. Install modern dependencies
 # ----------------------------------------------------------------------
 log "Installing/updating required libraries..."
 apt_update_needed=0
@@ -112,59 +113,13 @@ if [[ $apt_update_needed -eq 1 ]]; then
     apt-get update -y
 fi
 
-apt-get install -y libpcre2-16-0 libglib2.0-0 libgtk-3-0 libx11-xcb1 libxcb-xinerama0 libxcb-xfixes0 libxcb-shape0 libxcb-randr0 libxcb-render-util0
+apt-get install -y libpcre2-16-0 libglib2.0-0 libgtk-3-0 libx11-xcb1 libxcb-xinerama0 libxcb-xfixes0 libxcb-shape0 libxcb-randr0 libxcb-render-util0 libevent-2.1-7
 
 # Some older Tibia versions still look for the old lib name → symlink
 if [[ ! -e /usr/lib/x86_64-linux-gnu/libpcre.so.3 ]] && [[ -e /usr/lib/x86_64-linux-gnu/libpcre2-16.so.0 ]]; then
     ln -sf /usr/lib/x86_64-linux-gnu/libpcre2-16.so.0 /usr/lib/x86_64-linux-gnu/libpcre.so.3
     log "Created compatibility symlink for libpcre"
 fi
-
-# ----------------------------------------------------------------------
-# 3.5 Install Microsoft Core Fonts (TTF) - CRISP TEXT = BETTER PIXEL BOT ACCURACY
-# ----------------------------------------------------------------------
-log "Installing Microsoft Core Fonts (Tahoma, Arial, Verdana...) for correct text rendering..."
-
-# Method 1: Official package (Ubuntu/Debian/Mint)
-if command -v apt-get >/dev/null; then
-    # Accept Microsoft EULA automatically
-    echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | debconf-set-selections
-
-    # Create temporary dir for font installer (it downloads to /tmp sometimes)
-    export TMPDIR="$TEMP_DIR"
-
-    if apt-get install -y ttf-mscorefonts-installer; then
-        log "Microsoft Core Fonts installed successfully via package"
-    else
-        warn "Package installer failed. Falling back to direct download method..."
-
-        # Method 2: Fallback - Direct download of latest font pack (works 100% even on fresh minimal installs)
-        log "Downloading and installing Microsoft fonts manually"
-        wget -q -O "$TEMP_DIR/mscorefonts.tar.gz" \
-            https://github.com/peterbrittain/asciimatics/raw/master/ttf-mscorefonts.tar.gz || \
-            wget -q -O "$TEMP_DIR/mscorefonts.tar.gz" \
-            https://web.archive.org/web/2024/https://downloads.sourceforge.net/project/mscorefonts2/fonts/mscorefonts-latest.tar.gz
-
-        tar -xzf "$TEMP_DIR/mscorefonts.tar.gz" -C "$TEMP_DIR"
-
-        mkdir -p /usr/share/fonts/truetype/msttcorefonts
-        find "$TEMP_DIR" -name "*.ttf" -exec cp {} /usr/share/fonts/truetype/msttcorefonts/ \; 2>/dev/null || true
-        find "$TEMP_DIR" -name "*.TTF" -exec cp {} /usr/share/fonts/truetype/msttcorefonts/ \; 2>/dev/null || true
-
-        log "Copied $(find /usr/share/fonts/truetype/msttcorefonts -name "*.ttf" -o -name "*.TTF" | wc -l) Microsoft fonts"
-    fi
-
-# Final step: Update font cache (critical!)
-log "Updating font cache..."
-fc-cache -f -v >/dev/null 2>&1 || log "fc-cache failed (non-fatal) - fonts should still work"
-
-# Force Tibia to re-read fonts on next launch
-if [[ -f "$INSTALL_DIR/packages/Tibia/config.ini" ]]; then
-    sed -i 's/FontName=.*/FontName=Tahoma/' "$INSTALL_DIR/packages/Tibia/config.ini" 2>/dev/null || true
-    sed -i 's/UseCustomFont=.*/UseCustomFont=true/' "$INSTALL_DIR/packages/Tibia/config.ini" 2>/dev/null || true
-fi
-
-log "Microsoft fonts installed and activated"
 
 # ----------------------------------------------------------------------
 # 4. Create .desktop entry (proper quoting, valid icon path)
@@ -176,8 +131,8 @@ Version=1.0
 Type=Application
 Name=Tibia
 Comment=Official Tibia MMORPG Client (Linux)
-Icon=$INSTALL_DIR/packages/Tibia/tibia.png
-Exec="$INSTALL_DIR/start-tibia-launcher.sh"
+Icon=$INSTALL_DIR/tibia.ico
+Exec="$INSTALL_DIR/Tibia"
 Categories=Game;RolePlaying;
 Terminal=false
 StartupWMClass=Tibia
@@ -192,7 +147,7 @@ log "Desktop entry created at $DESKTOP_FILE"
 # ----------------------------------------------------------------------
 clear
 echo -e "${NC}Tibia has been successfully installed!${GREEN}"
-echo "   • Launch from your applications menu or run: $INSTALL_DIR/start-tibia-launcher.sh"
+echo "   • Launch from your applications menu or run: $INSTALL_DIR/Tibia"
 echo "   • For botting VMs: you can now safely run multiple clients with --no-sandbox if needed"
 echo "   • Log file: $LOG_FILE"
 echo -e "${NC}"
@@ -205,19 +160,3 @@ echo -e "${NC}"
 #     rm -f "${SCRIPT_DIR}/${SCRIPT_NAME}"
 #     log "Installer script deleted by user request"
 # fi
-
-# ----------------------------------------------------------------------
-# 6. Install minimap (essential for cavebot, pathfinding, targeting)
-# ----------------------------------------------------------------------
-log "Installing minimap from tibiamaps.io..."
-if [[ -f "./maps.sh" ]]; then
-    bash "./maps.sh" --no-markers > /dev/null 2>&1
-    log "Minimap with no markers installed"
-elif command -v maps.sh >/dev/null; then
-    maps.sh --grid-poi-markers
-else
-    warn "maps.sh not found in current directory – skipping minimap"
-    warn "Download it separately: https://tibiamaps.io"
-fi
-
-exit 0
