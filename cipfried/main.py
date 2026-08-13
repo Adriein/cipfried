@@ -1,4 +1,4 @@
-from cipfried.engine import Engine
+from cipfried.core import Engine
 
 def main():
     engine = Engine()

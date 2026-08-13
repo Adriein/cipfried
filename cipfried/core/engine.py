@@ -3,7 +3,7 @@ import time
 import keyboard
 
 from cipfried.os import Process, Memory, Video
-from cipfried.shared import EngineState, EngineCommand
+from cipfried.core import EngineState, EngineCommand
 
 class Engine:
     def __init__(self):
