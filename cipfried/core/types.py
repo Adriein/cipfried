@@ -1,7 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
 
-from cipfried.core.types import GameState
 from cipfried.core.frame_buffer import FrameBuffer
 
 TIBIA_SERVER_PORT = 7171

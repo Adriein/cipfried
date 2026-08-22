@@ -2,16 +2,15 @@ import logging
 import keyboard
 import threading
 
-from cipfried.os import Process, Memory
 from cipfried.core import GameState, EngineCommand, Context, State, FrameBuffer
 from cipfried.capture import GameCapture, Video
+from cipfried.os import Memory, Process
 
 logger = logging.getLogger(__name__)
 
 class Engine:
     def __init__(self):
         self._state = State()
-
 
         self._frame_buffer = FrameBuffer()
 
@@ -42,7 +41,7 @@ class Engine:
 
         self._capture_thread = threading.Thread(
             target=self._capture.capture_loop,
-            args=(self._frame_buffer, self._stop_event),
+            args=(self._ctx, self._stop_event),
             name="CaptureThread",
             daemon=True
         )

@@ -14,7 +14,7 @@ class FrameBuffer:
             self._frame = frame
             self._timestamp = time.perf_counter()
 
-    def get_latest(self) -> (tuple[None, float] | tuple[np.ndarray, float]):
+    def get_latest(self) -> tuple[np.ndarray | None, float]:
         """Called by Bot Vision Threads whenever they are ready to process."""
         with self._lock:
             if self._frame is None:
