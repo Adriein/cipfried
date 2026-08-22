@@ -2,7 +2,7 @@ import threading
 import numpy as np
 import time
 
-class LatestFrameBuffer:
+class FrameBuffer:
     def __init__(self):
         self._frame = None
         self._timestamp = 0.0

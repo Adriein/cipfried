@@ -2,7 +2,7 @@ from enum import Enum
 
 TIBIA_SERVER_PORT = 7171
 
-class EngineState(Enum):
+class GameState(Enum):
     Running = 1
     Paused = 2
     Stopped = 3

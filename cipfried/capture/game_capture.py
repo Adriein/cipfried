@@ -1,30 +1,31 @@
 import time
 import logging
-from typing import Generator
+import threading
 import numpy as np
 
-from cipfried.os import Process, Memory, Video
+from cipfried.os import Process
+from cipfried.core import FrameBuffer
 
 logger = logging.getLogger(__name__)
 
 class GameCapture:
     """Handles hooking to the target game process and streaming frames."""
-    def __init__(self):
-        self._process = Process(Memory(), Video())
+    def __init__(self, tibia: Process):
+        self._tibia = tibia
 
     def wait_for_process(self, poll_interval: float = 0.5) -> None:
         """Blocks until the target game process is found."""
-        self._process.hook()
-        while self._process.pid is None:
+        self._tibia.hook()
+        while self._tibia.pid is None:
             logger.info("Tibia is not running... retrying.")
             time.sleep(poll_interval)
-            self._process.hook()
+            self._tibia.hook()
 
-        logger.info(f"Hooked to Tibia process (PID: {self._process.pid}).")
+        logger.info(f"Hooked to Tibia process (PID: {self._tibia.pid}).")
 
-    def capture_loop(self, frame_buffer, stop_event) -> None:
+    def capture_loop(self, frame_buffer: FrameBuffer, stop_event: threading.Event) -> None:
         """Continuously pulls frames from the video stream and pushes to the frame buffer."""
-        video_stream = self._process.capture_video()
+        video_stream = self._tibia.capture_video_stream()
 
         # If capture_video() returns an iterator/generator or yields frames:
         while not stop_event.is_set():

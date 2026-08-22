@@ -1,40 +1,59 @@
-import time
-
+import logging
 import keyboard
+import threading
 
 from cipfried.os import Process, Memory, Video
-from cipfried.core import EngineState, EngineCommand
+from cipfried.core import GameState, EngineCommand, Context, FrameBuffer
+from cipfried.capture import GameCapture
+
+logger = logging.getLogger(__name__)
 
 class Engine:
     def __init__(self):
-        self._game = Process(Memory(), Video())
-        self._state = None
+        self._state = GameState.Stopped
+
+
+        self._frame_buffer = FrameBuffer()
+
+        tibia = Process(Memory(), Video())
+        self._capture = GameCapture(tibia)
+
+        self.ctx = Context(
+            frame_buffer=self._frame_buffer,
+            game_state=self._state,
+        )
+
+
+        self._stop_event = threading.Event()
+        self._capture_thread: threading.Thread | None = None
 
     def start(self):
-        self._state = EngineState.Running
-
-        #self._set_stop_handler()
-
-        self._game.hook()
-
-        while self._game.pid is None:
-            print("Tibia is not running...")
-
-            self._game.hook()
-
-            time.sleep(0.5)
-
-        video_stream = self._game.capture_video()
-
-        while self._state is EngineState.Running:
-            time.sleep(0.01)
+        if self._state != GameState.Stopped:
+            logger.warning("Engine is already running or starting.")
+            return
 
 
-        print("cipfried engine stopped.")
+        logger.info("Starting cipfried engine...")
+
+        self._capture.wait_for_process()
+
+        self._stop_event.clear()
+
+        self._capture_thread = threading.Thread(
+            target=self._capture.capture_loop,
+            args=(self._frame_buffer, self._stop_event),
+            name="CaptureThread",
+            daemon=True
+        )
+
+        self._capture_thread.start()
+
+        self._state = GameState.Running
+        logger.info("cipfried engine running.")
 
     def _set_stop_handler(self):
         keyboard.add_hotkey(EngineCommand.Stop.value, self._shutdown)
 
     def _shutdown(self):
         print(f"The {EngineCommand.Stop.value} key was pressed. Stopping cipfried engine...")
-        self._state = EngineState.Stopped
+        self._state = GameState.Stopped

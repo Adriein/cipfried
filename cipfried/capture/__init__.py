@@ -1,0 +1,1 @@
+from cipfried.capture.game_capture import GameCapture

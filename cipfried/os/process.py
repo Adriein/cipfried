@@ -14,7 +14,7 @@ class Process:
         self.pid = self._memory.get_pid_by_name(self.name)
 
 
-    def capture_video(self) -> VideoStream:
+    def capture_video_stream(self) -> VideoStream:
         if self._video.is_running():
             return self._video.stream
 
