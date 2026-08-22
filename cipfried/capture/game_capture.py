@@ -1,11 +1,10 @@
 import time
 import logging
 import threading
-import numpy as np
 
 from cipfried.os import Process
 from cipfried.core import Context
-from cipfried.capture import Video
+from cipfried.capture.video import Video
 
 logger = logging.getLogger(__name__)
 

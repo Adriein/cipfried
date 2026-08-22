@@ -3,7 +3,7 @@ import keyboard
 import threading
 
 from cipfried.os import Process, Memory
-from cipfried.core import GameState, EngineCommand, Context, FrameBuffer, State
+from cipfried.core import GameState, EngineCommand, Context, State, FrameBuffer
 from cipfried.capture import GameCapture, Video
 
 logger = logging.getLogger(__name__)

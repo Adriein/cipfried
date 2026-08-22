@@ -1,6 +1,18 @@
+from enum import Enum
 from dataclasses import dataclass
 
-from cipfried.core import FrameBuffer, GameState
+from cipfried.core.types import GameState
+from cipfried.core.frame_buffer import FrameBuffer
+
+TIBIA_SERVER_PORT = 7171
+
+class GameState(Enum):
+    Running = 1
+    Paused = 2
+    Stopped = 3
+
+class EngineCommand(Enum):
+    Stop = 'p'
 
 class State:
     """Mutable wrapper so state changes propagate across all threads referencing Context."""
