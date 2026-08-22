@@ -3,14 +3,14 @@ import keyboard
 import threading
 
 from cipfried.os import Process, Memory, Video
-from cipfried.core import GameState, EngineCommand, Context, FrameBuffer
+from cipfried.core import GameState, EngineCommand, Context, FrameBuffer, State
 from cipfried.capture import GameCapture
 
 logger = logging.getLogger(__name__)
 
 class Engine:
     def __init__(self):
-        self._state = GameState.Stopped
+        self._state = State()
 
 
         self._frame_buffer = FrameBuffer()
@@ -18,17 +18,18 @@ class Engine:
         tibia = Process(Memory(), Video())
         self._capture = GameCapture(tibia)
 
-        self.ctx = Context(
+        self._ctx = Context(
             frame_buffer=self._frame_buffer,
             game_state=self._state,
         )
 
-
         self._stop_event = threading.Event()
         self._capture_thread: threading.Thread | None = None
 
+        self._set_stop_handler()
+
     def start(self):
-        if self._state != GameState.Stopped:
+        if self._ctx.game_state.current != GameState.Stopped:
             logger.warning("Engine is already running or starting.")
             return
 
@@ -48,12 +49,25 @@ class Engine:
 
         self._capture_thread.start()
 
-        self._state = GameState.Running
+        self._ctx.game_state.current = GameState.Running
         logger.info("cipfried engine running.")
 
     def _set_stop_handler(self):
         keyboard.add_hotkey(EngineCommand.Stop.value, self._shutdown)
 
     def _shutdown(self):
-        print(f"The {EngineCommand.Stop.value} key was pressed. Stopping cipfried engine...")
-        self._state = GameState.Stopped
+        logger.info("Hotkey %s pressed.", EngineCommand.Stop.value)
+
+        if self._ctx.game_state.current == GameState.Stopped:
+            return
+
+        logger.info("Stopping cipfried engine...")
+        
+        self._stop_event.set()
+
+        if self._capture_thread and self._capture_thread.is_alive():
+            self._capture_thread.join(timeout=3.0)
+
+        self._ctx.game_state.current = GameState.Stopped
+
+        logger.info("cipfried engine stopped.")
