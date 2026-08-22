@@ -2,9 +2,9 @@ import logging
 import keyboard
 import threading
 
-from cipfried.os import Process, Memory, Video
+from cipfried.os import Process, Memory
 from cipfried.core import GameState, EngineCommand, Context, FrameBuffer, State
-from cipfried.capture import GameCapture
+from cipfried.capture import GameCapture, Video
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,8 @@ class Engine:
 
         self._frame_buffer = FrameBuffer()
 
-        tibia = Process(Memory(), Video())
-        self._capture = GameCapture(tibia)
+        tibia = Process(Memory())
+        self._capture = GameCapture(tibia, Video())
 
         self._ctx = Context(
             frame_buffer=self._frame_buffer,
@@ -62,7 +62,7 @@ class Engine:
             return
 
         logger.info("Stopping cipfried engine...")
-        
+
         self._stop_event.set()
 
         if self._capture_thread and self._capture_thread.is_alive():
