@@ -1,22 +1,24 @@
 import errno
 import os
+from typing import BinaryIO, Final
+
 
 class Memory:
-    ModeReadOnly = 'r'
-    ProcFs = '/proc'
-    ChunkSize = 1024 * 1024
+    MODE_READ_ONLY: Final = "r"
+    PROC_FS: Final = "/proc"
+    CHUNK_SIZE: Final = 1024 * 1024
 
-    def get_pid_by_name(self, name: str) -> int|None:
-        for pid in os.listdir(self.ProcFs):
+    def get_pid_by_name(self, name: str) -> int | None:
+        for pid in os.listdir(self.PROC_FS):
             if not pid.isdigit():
                 continue
 
             try:
-                with open(os.path.join(self.ProcFs, pid, 'cmdline'), self.ModeReadOnly) as buff:
+                with open(os.path.join(self.PROC_FS, pid, "cmdline"), self.MODE_READ_ONLY) as buff:
                     if name in buff.read().strip():
                         return int(pid)
 
-            except (IOError, FileNotFoundError):
+            except OSError:
                 continue
 
         return None
@@ -39,7 +41,7 @@ class Memory:
         if not pattern:
             raise ValueError("pattern must not be empty")
 
-        addresses = []
+        addresses: list[int] = []
         overlap = len(pattern) - 1
 
         with self._open(pid) as mem:
@@ -48,7 +50,7 @@ class Memory:
                 previous = b""
 
                 while position < end:
-                    size = min(self.ChunkSize, end - position)
+                    size = min(self.CHUNK_SIZE, end - position)
 
                     try:
                         chunk = self._read_at(mem, position, size)
@@ -74,9 +76,9 @@ class Memory:
 
         return addresses
 
-    def _open(self, pid: int):
+    def _open(self, pid: int) -> BinaryIO:
         try:
-            return open(os.path.join(self.ProcFs, str(pid), 'mem'), 'rb', buffering=0)
+            return open(os.path.join(self.PROC_FS, str(pid), "mem"), "rb", buffering=0)
         except PermissionError as error:
             raise PermissionError(
                 error.errno,
@@ -84,14 +86,14 @@ class Memory:
             ) from error
 
     def _ranges(self, pid: int) -> list[tuple[int, int]]:
-        ranges = []
+        ranges: list[tuple[int, int]] = []
 
-        with open(os.path.join(self.ProcFs, str(pid), 'maps'), encoding='utf-8') as maps:
+        with open(os.path.join(self.PROC_FS, str(pid), "maps"), encoding="utf-8") as maps:
             for line in maps:
                 fields = line.split(None, 5)
-                start, end = (int(value, 16) for value in fields[0].split('-'))
+                start, end = (int(value, 16) for value in fields[0].split("-"))
 
-                if fields[1][0] != self.ModeReadOnly:
+                if fields[1][0] != self.MODE_READ_ONLY:
                     continue
 
                 ranges.append((start, end))
@@ -99,7 +101,7 @@ class Memory:
         return ranges
 
     @staticmethod
-    def _read_at(mem, address: int, size: int) -> bytes:
+    def _read_at(mem: BinaryIO, address: int, size: int) -> bytes:
         mem.seek(address)
 
         return mem.read(size)

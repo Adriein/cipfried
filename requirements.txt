@@ -1,2 +1,1 @@
-keyboard
-pytest
+-e .[dev]

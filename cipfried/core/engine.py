@@ -1,7 +1,8 @@
 import logging
-import keyboard
 import threading
 import time
+
+import keyboard
 
 from cipfried.core.constants import EngineCommand, GameState
 from cipfried.core.context import Context, State
@@ -10,21 +11,17 @@ from cipfried.os.process import Process
 
 logger = logging.getLogger(__name__)
 
+
 class Engine:
-    def __init__(self):
+    def __init__(self) -> None:
         self._state = State()
-
         self._process = Process(Memory())
-
-        self._ctx = Context(
-            game_state=self._state,
-        )
-
+        self._ctx = Context(game_state=self._state)
         self._stop_event = threading.Event()
 
         self._set_stop_handler()
 
-    def start(self):
+    def start(self) -> None:
         if self._ctx.game_state.current != GameState.Stopped:
             logger.warning("Engine is already running or starting.")
             return
@@ -51,14 +48,14 @@ class Engine:
             time.sleep(poll_interval)
             self._process.hook()
 
-    def _set_stop_handler(self):
+    def _set_stop_handler(self) -> None:
         keyboard.add_hotkey(EngineCommand.Stop.value, self._on_stop_hotkey)
 
-    def _on_stop_hotkey(self):
+    def _on_stop_hotkey(self) -> None:
         logger.info("Hotkey %s pressed.", EngineCommand.Stop.value)
         self._shutdown()
 
-    def _shutdown(self):
+    def _shutdown(self) -> None:
         if self._ctx.game_state.current == GameState.Stopped:
             return
 

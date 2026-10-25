@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
-
-from cipfried.os import Process
-
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +12,18 @@ XTEA_KEY_ANCHOR_DISTANCE = 160
 XTEA_KEY_OFFSET = 8 + XTEA_KEY_SIZE
 
 
+class MemoryProcess(Protocol):
+    def scan_memory(self, pattern: bytes) -> list[int]: ...
+
+    def read_memory(self, address: int, size: int) -> bytes: ...
+
+
 @dataclass(frozen=True)
 class XteaKey:
     segments: tuple[int, int, int, int]
 
     @classmethod
-    def from_bytes(cls, raw: bytes) -> "XteaKey":
+    def from_bytes(cls, raw: bytes) -> XteaKey:
         if len(raw) != XTEA_KEY_SIZE:
             raise ValueError(f"XTEA key must be {XTEA_KEY_SIZE} bytes long")
 
@@ -32,12 +38,12 @@ class XteaKey:
         return b"".join(segment.to_bytes(4, "little") for segment in self.segments)
 
 
-def find_xtea_key(process: Process) -> XteaKey:
+def find_xtea_key(process: MemoryProcess) -> XteaKey:
     """Finds the XTEA key in the Tibia process memory using its anchor."""
     addresses = process.scan_memory(XTEA_KEY_ANCHOR)
-    key_address = None
+    key_address: int | None = None
 
-    for previous, current in zip(addresses, addresses[1:]):
+    for previous, current in zip(addresses, addresses[1:], strict=False):
         if current - previous == XTEA_KEY_ANCHOR_DISTANCE:
             key_address = current - XTEA_KEY_OFFSET
 

@@ -3,13 +3,14 @@ PYTHON = .venv/bin/python
 PIP = .venv/bin/pip
 
 # Default target
-.PHONY: help
+.PHONY: help venv install run lint typecheck build clean
 help:
 	@echo "make venv       - Create virtual environment"
-	@echo "make install    - Install dependencies from requirements.txt"
+	@echo "make install    - Install the project and dev dependencies"
 	@echo "make run        - Run the app (using venv)"
-	@echo "make test       - Run tests with pytest"
-	@echo "make clean      - Remove build artifacts"
+	@echo "make lint       - Run ruff"
+	@echo "make typecheck  - Run mypy"
+	@echo "make clean      - Remove build artifacts and caches"
 	@echo "make build      - Build executable with PyInstaller"
 
 # Create venv
@@ -25,15 +26,20 @@ install: venv
 run:
 	$(PYTHON) -m cipfried.main
 
-# Run tests
-test:
-	$(PYTHON) -m pytest
+# Run linter
+lint:
+	$(PYTHON) -m ruff check .
+
+# Run type checker
+typecheck:
+	$(PYTHON) -m mypy
 
 # Build executable
-build:
-	$(PYTHON) -m pip install pyinstaller
+build: install
+	$(PIP) install -e ".[build]"
 	$(PYTHON) -m PyInstaller --onefile --name cipfried --icon=assets/monk_icon.png cipfried/main.py
 
 # Clean artifacts
 clean:
-	rm -rf build dist __pycache__ .pytest_cache *.spec
+	rm -rf build dist .mypy_cache .ruff_cache *.spec
+	find . -type d -name __pycache__ -prune -exec rm -rf {} +

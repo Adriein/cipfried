@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cipfried"
+version = "0.1.0"
+description = "Tibia process automation and network tooling"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Adria Claret" }]
+dependencies = [
+    "keyboard>=0.13.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.10",
+    "ruff>=0.6",
+]
+build = [
+    "pyinstaller>=6.0",
+]
+
+[project.scripts]
+cipfried = "cipfried.main:main"
+
+[tool.setuptools.packages.find]
+include = ["cipfried*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["cipfried"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cipfried"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["cipfried"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true

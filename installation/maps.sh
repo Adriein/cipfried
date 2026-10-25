@@ -21,11 +21,19 @@ error() { echo -e "${RED}[MAPS] ERROR:${NC} $*" >&2 ; }
 # Auto-detect Tibia data directory (supports /opt and user-local installs)
 # ----------------------------------------------------------------------
 find_tibia_dir() {
-    local xdg="${XDG_DATA_HOME:-"${HOME}/.local/share"}/CipSoft GmbH/Tibia/packages/Tibia"
-    if [[ -d "$xdg" ]]; then
-        echo "$xdg"
-        return 0
-    fi
+    local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+    local candidates=(
+        "$data_home/CipSoft GmbH/Tibia/packages/Tibia"
+        "/opt/Tibia"
+    )
+    local candidate
+
+    for candidate in "${candidates[@]}"; do
+        if [[ -d "$candidate" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
 
     error "Tibia client not found! Install it first with tibia.sh"
     exit 1
