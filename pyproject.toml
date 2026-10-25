@@ -12,6 +12,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Adria Claret" }]
 dependencies = [
     "keyboard>=0.13.5",
+    "scapy>=2.6.1",
 ]
 
 [project.optional-dependencies]

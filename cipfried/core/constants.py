@@ -1,7 +1,4 @@
 from enum import Enum
-from typing import Final
-
-TIBIA_SERVER_PORT: Final = 7171
 
 
 class GameState(Enum):
