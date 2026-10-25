@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 TcpEndpoint = tuple[str, int, str, int]
 
+TCP_FIN: Final = 0x01
+TCP_RST: Final = 0x04
+TCP_STREAM_END_FLAGS: Final = TCP_FIN | TCP_RST
+
 
 @dataclass
 class _StreamState:
@@ -76,7 +80,7 @@ class TibiaSniffer:
     def _handle_packet(self, packet: Any) -> None:
         tcp = packet.getlayer(TCP)
 
-        if tcp is None or not packet.haslayer(Raw):
+        if tcp is None:
             return
 
         if tcp.sport == self.TIBIA_SERVER_PORT:
@@ -92,6 +96,14 @@ class TibiaSniffer:
             return
 
         endpoint: TcpEndpoint = (ip.src, int(tcp.sport), ip.dst, int(tcp.dport))
+        stream_ended = bool(int(tcp.flags) & TCP_STREAM_END_FLAGS)
+
+        if not packet.haslayer(Raw):
+            if stream_ended:
+                self._streams.pop(endpoint, None)
+
+            return
+
         state = self._streams.get(endpoint)
 
         if state is None:
@@ -115,7 +127,7 @@ class TibiaSniffer:
         for tibia_packet in packets:
             self._dispatch(tibia_packet)
 
-        if int(tcp.flags) & 0x05:
+        if stream_ended:
             self._streams.pop(endpoint, None)
 
     def _dispatch(self, packet: TibiaPacket) -> None:
