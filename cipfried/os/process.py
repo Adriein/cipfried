@@ -1,26 +1,24 @@
 from cipfried.os.memory import Memory
-from cipfried.os.video import Video, VideoStream
 
 
 class Process:
-    def __init__(self, memory: Memory, video: Video):
+    def __init__(self, memory: Memory):
         self._memory = memory
-        self._video = video
 
         self.name = 'Tibia'
-        self.pid = None
+        self.pid: int | None = None
 
     def hook(self,) -> None:
         self.pid = self._memory.get_pid_by_name(self.name)
 
+    def read_memory(self, address: int, size: int) -> bytes:
+        return self._memory.read(self._hooked_pid(), address, size)
 
-    def capture_video_stream(self) -> VideoStream:
-        if self._video.is_running():
-            return self._video.stream
+    def scan_memory(self, pattern: bytes) -> list[int]:
+        return self._memory.scan(self._hooked_pid(), pattern)
 
-        self._video.start()
+    def _hooked_pid(self) -> int:
+        if self.pid is None:
+            raise RuntimeError("Tibia process is not hooked")
 
-        return self._video.stream
-
-    def abort_video_capture(self) -> None:
-        self._video.stop()
+        return self.pid

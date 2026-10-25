@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from cipfried.core import FrameBuffer, GameState
+from cipfried.core.constants import GameState
 
 class State:
     """Mutable wrapper so state changes propagate across all threads referencing Context."""
@@ -9,5 +9,4 @@ class State:
 
 @dataclass
 class Context:
-    frame_buffer: FrameBuffer
     game_state: State

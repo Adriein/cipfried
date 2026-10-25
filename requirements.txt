@@ -1,8 +1,2 @@
 keyboard
 pytest
-opencv-python
-numpy
-mss
-pyautogui
-pyscreenshot
-Pillow
