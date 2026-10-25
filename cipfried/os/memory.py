@@ -8,20 +8,30 @@ class Memory:
     PROC_FS: Final = "/proc"
     CHUNK_SIZE: Final = 1024 * 1024
 
-    def get_pid_by_name(self, name: str) -> int | None:
+    def get_pids_by_name(self, name: str) -> list[int]:
+        """Returns PIDs whose executable path contains the given name component."""
+        if not name:
+            raise ValueError("name must not be empty")
+
+        pids: list[int] = []
+
         for pid in os.listdir(self.PROC_FS):
             if not pid.isdigit():
                 continue
 
             try:
                 with open(os.path.join(self.PROC_FS, pid, "cmdline"), self.MODE_READ_ONLY) as buff:
-                    if name in buff.read().strip():
-                        return int(pid)
-
+                    cmdline = buff.read()
             except OSError:
                 continue
 
-        return None
+            if self._matches_name(cmdline, name):
+                pids.append(int(pid))
+
+        return sorted(pids)
+
+    def is_process_alive(self, pid: int) -> bool:
+        return os.path.isdir(os.path.join(self.PROC_FS, str(pid)))
 
     def read(self, pid: int, address: int, size: int) -> bytes:
         """Reads bytes from a process at the given address."""
@@ -99,6 +109,12 @@ class Memory:
                 ranges.append((start, end))
 
         return ranges
+
+    @staticmethod
+    def _matches_name(cmdline: str, name: str) -> bool:
+        executable = cmdline.split("\0", 1)[0]
+
+        return bool(executable) and name in executable.split(os.sep)
 
     @staticmethod
     def _read_at(mem: BinaryIO, address: int, size: int) -> bytes:

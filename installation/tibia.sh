@@ -12,6 +12,8 @@ readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly LOG_FILE="/var/log/tibia-installer.log"
 
+source "$SCRIPT_DIR/common.sh"
+
 # Colors for pretty output
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -77,6 +79,11 @@ log "Using temporary directory: $TEMP_DIR"
 log "Downloading Tibia client from official source..."
 if ! wget --quiet --show-progress --tries=3 --timeout=30 -O "$TEMP_DIR/tibia.x64.tar.gz" "$DOWNLOAD_URL"; then
     die "Failed to download Tibia package. Check your internet connection or the URL."
+fi
+
+if [[ -n "${TIBIA_SHA256:-}" ]]; then
+    log "Verifying download checksum..."
+    verify_sha256 "$TEMP_DIR/tibia.x64.tar.gz" "$TIBIA_SHA256" || die "Checksum verification failed."
 fi
 
 log "Extracting archive..."

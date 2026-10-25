@@ -7,6 +7,9 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -17,29 +20,11 @@ log() { echo -e "${GREEN}[MAPS]${NC} $*" ; }
 warn() { echo -e "${YELLOW}[MAPS] WARN:${NC} $*" ; }
 error() { echo -e "${RED}[MAPS] ERROR:${NC} $*" >&2 ; }
 
-# ----------------------------------------------------------------------
-# Auto-detect Tibia data directory (supports /opt and user-local installs)
-# ----------------------------------------------------------------------
-find_tibia_dir() {
-    local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
-    local candidates=(
-        "$data_home/CipSoft GmbH/Tibia/packages/Tibia"
-        "/opt/Tibia"
-    )
-    local candidate
-
-    for candidate in "${candidates[@]}"; do
-        if [[ -d "$candidate" ]]; then
-            echo "$candidate"
-            return 0
-        fi
-    done
-
+if ! TIBIA_DIR="$(find_tibia_dir)"; then
     error "Tibia client not found! Install it first with tibia.sh"
     exit 1
-}
+fi
 
-TIBIA_DIR="$(find_tibia_dir)"
 log "Using Tibia data directory: $TIBIA_DIR"
 
 mkdir -p "$TIBIA_DIR"
@@ -48,28 +33,28 @@ mkdir -p "$TIBIA_DIR"
 # Map selection
 # ----------------------------------------------------------------------
 
-case "${1}" in
+case "${1:-}" in
 	--grid)
-		URL='https://tibiamaps.io/downloads/minimap-with-grid-overlay-and-markers';
-		NAME="grid + markers";
+		URL='https://tibiamaps.io/downloads/minimap-with-grid-overlay-and-markers'
+		NAME="grid + markers"
 		;;
 	--grid-no-markers)
-		URL='https://tibiamaps.io/downloads/minimap-with-grid-overlay-without-markers';
-		NAME="grid only";
+		URL='https://tibiamaps.io/downloads/minimap-with-grid-overlay-without-markers'
+		NAME="grid only"
 		;;
 	--no-markers)
-		URL='https://tibiamaps.io/downloads/minimap-without-markers';
-		NAME="clean";
+		URL='https://tibiamaps.io/downloads/minimap-without-markers'
+		NAME="clean"
 		;;
 	--grid-poi-markers)
-		URL='https://tibiamaps.io/downloads/minimap-with-grid-overlay-and-poi-markers';
-		NAME="grid + POI";
+		URL='https://tibiamaps.io/downloads/minimap-with-grid-overlay-and-poi-markers'
+		NAME="grid + POI"
 		;;
 	*)
-		URL='https://tibiamaps.io/downloads/minimap-with-markers';
-		NAME="default (markers)";
+		URL='https://tibiamaps.io/downloads/minimap-with-markers'
+		NAME="default (markers)"
 		;;
-esac;
+esac
 
 log "Downloading minimap: $NAME…"
 
@@ -79,6 +64,14 @@ trap 'rm -f "$ZIP_FILE"' EXIT
 if ! curl --fail --silent --show-error --location --progress-bar "$URL" -o "$ZIP_FILE"; then
     error "Download failed. Check internet or tibiamaps.io status."
     exit 1
+fi
+
+if [[ -n "${TIBIA_MAPS_SHA256:-}" ]]; then
+    log "Verifying download checksum..."
+    verify_sha256 "$ZIP_FILE" "$TIBIA_MAPS_SHA256" || {
+        error "Checksum verification failed."
+        exit 1
+    }
 fi
 
 log "Extracting $(du -h "$ZIP_FILE" | cut -f1) to $TIBIA_DIR…"

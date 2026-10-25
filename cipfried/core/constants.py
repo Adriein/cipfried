@@ -5,9 +5,10 @@ TIBIA_SERVER_PORT: Final = 7171
 
 
 class GameState(Enum):
-    Running = 1
-    Paused = 2
-    Stopped = 3
+    Stopped = 1
+    Starting = 2
+    Running = 3
+    Stopping = 4
 
 
 class EngineCommand(Enum):

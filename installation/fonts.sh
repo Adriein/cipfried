@@ -7,6 +7,9 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -17,31 +20,13 @@ log() { echo -e "${GREEN}[FONTS]${NC} $*" ; }
 warn() { echo -e "${YELLOW}[FONTS] WARN:${NC} $*" ; }
 error() { echo -e "${RED}[FONTS] ERROR:${NC} $*" >&2 ; }
 
-# ----------------------------------------------------------------------
-# Auto-detect Tibia data directory (supports /opt and user-local installs)
-# ----------------------------------------------------------------------
-find_tibia_dir() {
-    local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
-    local candidates=(
-        "$data_home/CipSoft GmbH/Tibia/packages/Tibia"
-        "/opt/Tibia"
-    )
-    local candidate
-
-    for candidate in "${candidates[@]}"; do
-        if [[ -d "$candidate" ]]; then
-            echo "$candidate"
-            return 0
-        fi
-    done
-
-    error "Tibia client not found! Install it first with tibia.sh"
-    exit 1
-}
-
 readonly TEMP_DIR="$(mktemp -d -t tibia-fonts-XXXXXXXXXX)"
 
-TIBIA_DIR="$(find_tibia_dir)"
+if ! TIBIA_DIR="$(find_tibia_dir)"; then
+    error "Tibia client not found! Install it first with tibia.sh"
+    exit 1
+fi
+
 log "Using Tibia data directory: $TIBIA_DIR"
 
 cleanup() {
