@@ -9,11 +9,13 @@ from cipfried.core.constants import EngineCommand, GameState
 from cipfried.core.context import Context, State
 from cipfried.network.protocol import TibiaPacket
 from cipfried.network.sniffer import TibiaSniffer
-from cipfried.network.xtea import XteaCipher, find_xtea_key
+from cipfried.network.xtea import XteaCipher, XteaKey, find_xtea_key
 from cipfried.os.memory import Memory
 from cipfried.os.process import Process
 
 logger = logging.getLogger(__name__)
+
+KEY_POLL_INTERVAL = 5.0
 
 
 class Engine:
@@ -25,6 +27,9 @@ class Engine:
         self._hotkey_handle: Callable[[], None] | None = None
         self._sniffer = sniffer if sniffer is not None else TibiaSniffer()
         self._sniffer.set_handler(self._on_packet)
+        self._xtea_key: XteaKey | None = None
+        self._key_stop = threading.Event()
+        self._key_thread: threading.Thread | None = None
 
     def start(self) -> None:
         if self._ctx.game_state.current != GameState.Stopped:
@@ -32,17 +37,15 @@ class Engine:
             return
 
         self._stop_event.clear()
+        self._key_stop.clear()
         self._ctx.game_state.current = GameState.Starting
         logger.info("Starting cipfried engine...")
 
         try:
             self._set_stop_handler()
-            self._wait_for_process()
-
-            if self._stop_event.is_set():
-                return
-
             self._start_sniffer()
+            self._start_key_watcher()
+            self._wait_for_process()
 
             if self._stop_event.is_set():
                 return
@@ -51,6 +54,9 @@ class Engine:
             logger.info("cipfried engine running (PID: %s).", self._process.pid)
             self._monitor_process()
         finally:
+            self._stop_key_watcher()
+            self._xtea_key = None
+            self._sniffer.set_cipher(None)
             self._sniffer.stop()
             self._ctx.game_state.current = GameState.Stopped
             self._remove_stop_handler()
@@ -86,6 +92,8 @@ class Engine:
                 continue
 
             logger.warning("%s process exited; waiting for restart...", self._process.name)
+            self._xtea_key = None
+            self._sniffer.set_cipher(None)
             self._sniffer.stop()
             self._ctx.game_state.current = GameState.Starting
             self._wait_for_process()
@@ -102,20 +110,47 @@ class Engine:
             logger.info("cipfried engine running (PID: %s).", self._process.pid)
 
     def _start_sniffer(self) -> None:
-        self._sniffer.set_cipher(self._load_cipher())
         self._sniffer.start()
 
-    def _load_cipher(self) -> XteaCipher | None:
-        logger.info("Searching for the XTEA key...")
+    def _start_key_watcher(self) -> None:
+        if self._key_thread is not None:
+            return
+
+        self._key_thread = threading.Thread(target=self._watch_key, name="cipfried-xtea", daemon=True)
+        self._key_thread.start()
+
+    def _stop_key_watcher(self) -> None:
+        self._key_stop.set()
+        thread = self._key_thread
+        self._key_thread = None
+
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+
+    def _watch_key(self) -> None:
+        logger.info("Watching for the XTEA key...")
+
+        while not self._key_stop.is_set():
+            self._refresh_cipher()
+            self._key_stop.wait(KEY_POLL_INTERVAL)
+
+    def _refresh_cipher(self) -> None:
+        if self._key_stop.is_set() or self._process.pid is None:
+            return
 
         try:
             key = find_xtea_key(self._process)
         except (OSError, RuntimeError, ValueError) as error:
-            logger.warning("XTEA key not found (%s); captured packets will remain encrypted.", error)
-            return None
+            logger.debug("XTEA key not available: %s", error)
+            return
 
-        logger.info("XTEA key loaded.")
-        return XteaCipher(key)
+        if key == self._xtea_key:
+            return
+
+        changed = self._xtea_key is not None
+        self._xtea_key = key
+        self._sniffer.set_cipher(XteaCipher(key))
+        logger.info("XTEA key %s.", "changed" if changed else "loaded")
 
     def _on_packet(self, packet: TibiaPacket) -> None:
         direction = "client" if packet.from_client else "server"

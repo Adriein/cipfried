@@ -1,4 +1,5 @@
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Final
@@ -40,23 +41,40 @@ class TibiaSniffer:
         self._sniffer: AsyncSniffer | None = None
         self._streams: dict[TcpEndpoint, _StreamState] = {}
         self._active_server: tuple[str, int] | None = None
+        self._lock = threading.Lock()
 
     @property
     def is_running(self) -> bool:
         return self._sniffer is not None
 
     def set_handler(self, handler: Callable[[TibiaPacket], None] | None) -> None:
-        self._on_packet = handler
+        with self._lock:
+            self._on_packet = handler
 
     def set_cipher(self, cipher: XteaCipher | None) -> None:
-        self._cipher = cipher
+        packets: list[TibiaPacket] = []
 
-        for state in self._streams.values():
-            state.decoder.set_cipher(cipher)
+        with self._lock:
+            if cipher is self._cipher:
+                return
+
+            self._cipher = cipher
+            self._active_server = None
+
+            for state in self._streams.values():
+                state.decoder.set_cipher(cipher)
+
+            if cipher is not None:
+                for state in self._streams.values():
+                    packets.extend(state.decoder.feed(b""))
+
+        for packet in packets:
+            self._dispatch(packet)
 
     def start(self, interface: str | None = None) -> None:
-        if self._sniffer is not None:
-            return
+        with self._lock:
+            if self._sniffer is not None:
+                return
 
         sniffer = AsyncSniffer(
             iface=interface,
@@ -65,19 +83,22 @@ class TibiaSniffer:
             store=False,
         )
         sniffer.start()
-        self._sniffer = sniffer
+
+        with self._lock:
+            self._sniffer = sniffer
+
         logger.info("Sniffing Tibia traffic on TCP port %d.", self.TIBIA_SERVER_PORT)
 
     def stop(self) -> None:
-        sniffer = self._sniffer
-        self._sniffer = None
+        with self._lock:
+            sniffer = self._sniffer
+            self._sniffer = None
+            self._streams.clear()
+            self._active_server = None
 
         if sniffer is not None:
             sniffer.stop()
             logger.info("Stopped Tibia packet sniffer.")
-
-        self._streams.clear()
-        self._active_server = None
 
     def _handle_packet(self, packet: Any) -> None:
         tcp = packet.getlayer(TCP)
@@ -100,55 +121,76 @@ class TibiaSniffer:
         endpoint: TcpEndpoint = (ip.src, int(tcp.sport), ip.dst, int(tcp.dport))
         stream_ended = bool(int(tcp.flags) & TCP_STREAM_END_FLAGS)
         server_endpoint = (ip.dst, int(tcp.dport)) if from_client else (ip.src, int(tcp.sport))
+        packets: list[TibiaPacket] = []
 
-        if self._active_server is not None and server_endpoint != self._active_server:
-            if stream_ended:
+        with self._lock:
+            if self._active_server is not None and server_endpoint != self._active_server:
+                logger.debug(
+                    "Ignoring Tibia stream %s:%d -> %s:%d; active server is %s:%d.",
+                    *endpoint,
+                    *self._active_server,
+                )
+
+                if stream_ended:
+                    self._streams.pop(endpoint, None)
+
+                return
+
+            if not packet.haslayer(Raw):
+                if stream_ended:
+                    self._streams.pop(endpoint, None)
+                    self._clear_active_server(server_endpoint)
+
+                return
+
+            state = self._streams.get(endpoint)
+
+            if state is None:
+                state = _StreamState(
+                    reassembler=TcpReassembler(),
+                    decoder=TibiaStreamDecoder(self._cipher, from_client),
+                )
+                self._streams[endpoint] = state
+                logger.info("Capturing Tibia traffic %s:%d -> %s:%d.", *endpoint)
+
+            raw_payload = bytes(packet[Raw].load)
+            logger.debug(
+                "Tibia stream %s:%d -> %s:%d raw segment seq=%d (%d bytes).",
+                *endpoint,
+                int(tcp.seq),
+                len(raw_payload),
+            )
+
+            try:
+                stream = state.reassembler.feed(int(tcp.seq), raw_payload)
+                packets = state.decoder.feed(stream)
+            except (TibiaProtocolError, ValueError) as error:
+                logger.warning("Resetting Tibia stream %s:%d -> %s:%d: %s", *endpoint, error)
                 self._streams.pop(endpoint, None)
+                return
 
-            return
+            logger.debug(
+                "Tibia stream %s:%d -> %s:%d decoded %d packets from %d reassembled bytes.",
+                *endpoint,
+                len(packets),
+                len(stream),
+            )
 
-        if not packet.haslayer(Raw):
+            if not from_client and self._active_server is None and any(
+                tibia_packet.decrypted for tibia_packet in packets
+            ):
+                self._active_server = server_endpoint
+                logger.info(
+                    "Using Tibia server endpoint %s:%d; ignoring other server streams.",
+                    *server_endpoint,
+                )
+
             if stream_ended:
                 self._streams.pop(endpoint, None)
                 self._clear_active_server(server_endpoint)
 
-            return
-
-        state = self._streams.get(endpoint)
-
-        if state is None:
-            state = _StreamState(
-                reassembler=TcpReassembler(),
-                decoder=TibiaStreamDecoder(self._cipher, from_client),
-            )
-            self._streams[endpoint] = state
-            logger.info("Capturing Tibia traffic %s:%d -> %s:%d.", *endpoint)
-
-        try:
-            stream = state.reassembler.feed(int(tcp.seq), bytes(packet[Raw].load))
-            packets = state.decoder.feed(stream)
-        except (TibiaProtocolError, ValueError) as error:
-            logger.warning(
-                "Resetting Tibia stream %s:%d -> %s:%d: %s", *endpoint, error
-            )
-            self._streams.pop(endpoint, None)
-            return
-
-        if not from_client and self._active_server is None and any(
-            tibia_packet.decrypted for tibia_packet in packets
-        ):
-            self._active_server = server_endpoint
-            logger.info(
-                "Using Tibia server endpoint %s:%d; ignoring other server streams.",
-                *server_endpoint,
-            )
-
         for tibia_packet in packets:
             self._dispatch(tibia_packet)
-
-        if stream_ended:
-            self._streams.pop(endpoint, None)
-            self._clear_active_server(server_endpoint)
 
     def _clear_active_server(self, server_endpoint: tuple[str, int]) -> None:
         if self._active_server == server_endpoint:

@@ -110,6 +110,6 @@ def find_xtea_key(process: MemoryProcess) -> XteaKey:
         raise ValueError("No XTEA key found in process memory")
 
     key = XteaKey.from_bytes(process.read_memory(key_address, XTEA_KEY_SIZE))
-    logger.info("XTEA key found.")
+    logger.debug("XTEA key found.")
 
     return key
