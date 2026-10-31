@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Tibia 64-bit Linux Installer (Arch Linux)
+# Author: aclaret
+# Purpose: Install official Tibia client cleanly and safely on Arch-based distros
+#          using a locally downloaded tibia.x64.tar.gz
+# Tested on: Arch Linux / Omarchy
+# =============================================================================
+
+set -euo pipefail               # Strict mode: exit on error, undefined var, pipe fail
+IFS=$'\n\t'                     # Safer word splitting
+readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly LOG_FILE="/var/log/tibia-installer.log"
+
+source "$SCRIPT_DIR/common.sh"
+
+# Colors for pretty output
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly NC='\033[0m' # No Color
+
+log() {
+    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $*${NC}" | tee -a "$LOG_FILE"
+}
+
+error() {
+    echo -e "${RED}[ERROR] $*${NC}" >&2 | tee -a "$LOG_FILE"
+}
+
+warn() {
+    echo -e "${YELLOW}[WARN] $*${NC}" | tee -a "$LOG_FILE"
+}
+
+die() {
+    error "$1"
+    exit "${2:-1}"
+}
+
+# ----------------------------------------------------------------------
+# Root check
+# ----------------------------------------------------------------------
+if [[ "${EUID}" -ne 0 ]]; then
+    clear
+    echo "======================================================================"
+    echo "          Tibia Linux Installer (Arch) (by Aclaret)"
+    echo "======================================================================"
+    echo "This script requires root privileges (to install system-wide)."
+    echo "Please run with sudo or as root."
+    echo "======================================================================"
+    read -n 1 -s -r -p "Press any key to exit..."
+    echo
+    exit 1
+fi
+
+log "Starting Tibia installation as root"
+
+# ----------------------------------------------------------------------
+# Configuration (easy to tweak)
+# ----------------------------------------------------------------------
+readonly INSTALL_DIR="/opt/Tibia"
+readonly DESKTOP_FILE="/usr/share/applications/Tibia.desktop"
+readonly TEMP_DIR="$(mktemp -d -t tibia-install-XXXXXXXXXX)"
+
+cleanup() {
+    if [[ -d "$TEMP_DIR" ]]; then
+        rm -rf "$TEMP_DIR"
+        log "Cleaned up temporary directory: $TEMP_DIR"
+    fi
+}
+trap cleanup EXIT
+
+log "Using temporary directory: $TEMP_DIR"
+
+# ----------------------------------------------------------------------
+# 1. Locate local archive & extract Tibia
+# ----------------------------------------------------------------------
+if ! TIBIA_ARCHIVE="$(find_tibia_tarball "${1:-}")"; then
+    error "Tibia archive not found."
+    echo "Please download the official Tibia Linux client (tibia.x64.tar.gz) from:"
+    echo "  https://www.tibia.com/download/"
+    echo "and place it in your Downloads folder."
+    echo "You can also pass the path directly or set TIBIA_TARBALL=/path/to/tibia.x64.tar.gz"
+    exit 1
+fi
+
+log "Using local archive: $TIBIA_ARCHIVE"
+
+if [[ -n "${TIBIA_SHA256:-}" ]]; then
+    log "Verifying archive checksum..."
+    verify_sha256 "$TIBIA_ARCHIVE" "$TIBIA_SHA256" || die "Checksum verification failed."
+fi
+
+log "Extracting archive..."
+tar -xzf "$TIBIA_ARCHIVE" -C "$TEMP_DIR" || die "Failed to extract the archive"
+
+# The official tarball extracts to a folder called "Tibia"
+if [[ ! -d "$TEMP_DIR/Tibia" ]]; then
+    die "Expected 'Tibia' directory not found after extraction!"
+fi
+
+# ----------------------------------------------------------------------
+# 2. Install to /opt/Tibia (idempotent)
+# ----------------------------------------------------------------------
+if [[ -d "$INSTALL_DIR" ]]; then
+    warn "Existing installation found at $INSTALL_DIR – removing old version"
+    rm -rf "$INSTALL_DIR"
+fi
+
+log "Installing Tibia to $INSTALL_DIR"
+mv "$TEMP_DIR/Tibia" "$INSTALL_DIR"
+
+chmod +x "$INSTALL_DIR/Tibia"
+
+# ----------------------------------------------------------------------
+# 3. Install Arch dependencies
+# ----------------------------------------------------------------------
+log "Installing/updating required libraries..."
+pacman -S --needed --noconfirm \
+  pcre2 \
+  glib2 \
+  gtk3 \
+  libx11 \
+  libxcb \
+  xcb-util \
+  xcb-util-renderutil \
+  libevent
+
+# Some older Tibia versions still look for the old lib name → symlink
+if [[ ! -e /usr/lib/libpcre.so.3 ]] && [[ -e /usr/lib/libpcre2-16.so.0 ]]; then
+    ln -sf /usr/lib/libpcre2-16.so.0 /usr/lib/libpcre.so.3
+    log "Created compatibility symlink for libpcre"
+fi
+
+# ----------------------------------------------------------------------
+# 4. Create .desktop entry (proper quoting, valid icon path)
+# ----------------------------------------------------------------------
+log "Creating desktop entry..."
+cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Tibia
+Comment=Official Tibia MMORPG Client (Linux)
+Icon=$INSTALL_DIR/tibia.ico
+Exec="$INSTALL_DIR/Tibia"
+Categories=Game;RolePlaying;
+Terminal=false
+StartupWMClass=Tibia
+Path=$INSTALL_DIR
+EOF
+
+chmod 644 "$DESKTOP_FILE"
+log "Desktop entry created at $DESKTOP_FILE"
+
+# ----------------------------------------------------------------------
+# 5. Final success message
+# ----------------------------------------------------------------------
+clear
+echo -e "${NC}Tibia has been successfully installed!${GREEN}"
+echo "   • Launch from your applications menu or run: $INSTALL_DIR/Tibia"
+echo "   • For botting VMs: you can now safely run multiple clients with --no-sandbox if needed"
+echo "   • Log file: $LOG_FILE"
+echo -e "${NC}"
+
+# ----------------------------------------------------------------------
+# Optional: self-delete (comment if you want to keep the installer)
+# ----------------------------------------------------------------------
+# read -n 1 -s -r -p "Press Y to delete this installer script, any other key to keep it: "
+# if [[ $REPLY =~ ^[Yy]$ ]]; then
+#     rm -f "${SCRIPT_DIR}/${SCRIPT_NAME}"
+#     log "Installer script deleted by user request"
+# fi

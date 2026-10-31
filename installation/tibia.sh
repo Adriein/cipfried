@@ -3,6 +3,7 @@
 # Tibia 64-bit Linux Installer
 # Author: aclaret
 # Purpose: Install official Tibia client cleanly and safely on modern Ubuntu
+#          using a locally downloaded tibia.x64.tar.gz
 # Tested on: Ubuntu 24.04
 # =============================================================================
 
@@ -60,7 +61,6 @@ log "Starting Tibia installation as root"
 # ----------------------------------------------------------------------
 readonly INSTALL_DIR="/opt/Tibia"
 readonly DESKTOP_FILE="/usr/share/applications/Tibia.desktop"
-readonly DOWNLOAD_URL="https://static.tibia.com/download/tibia.x64.tar.gz"
 readonly TEMP_DIR="$(mktemp -d -t tibia-install-XXXXXXXXXX)"
 
 cleanup() {
@@ -74,20 +74,26 @@ trap cleanup EXIT
 log "Using temporary directory: $TEMP_DIR"
 
 # ----------------------------------------------------------------------
-# 1. Download & extract Tibia
+# 1. Locate local archive & extract Tibia
 # ----------------------------------------------------------------------
-log "Downloading Tibia client from official source..."
-if ! wget --quiet --show-progress --tries=3 --timeout=30 -O "$TEMP_DIR/tibia.x64.tar.gz" "$DOWNLOAD_URL"; then
-    die "Failed to download Tibia package. Check your internet connection or the URL."
+if ! TIBIA_ARCHIVE="$(find_tibia_tarball "${1:-}")"; then
+    error "Tibia archive not found."
+    echo "Please download the official Tibia Linux client (tibia.x64.tar.gz) from:"
+    echo "  https://www.tibia.com/download/"
+    echo "and place it in your Downloads folder."
+    echo "You can also pass the path directly or set TIBIA_TARBALL=/path/to/tibia.x64.tar.gz"
+    exit 1
 fi
 
+log "Using local archive: $TIBIA_ARCHIVE"
+
 if [[ -n "${TIBIA_SHA256:-}" ]]; then
-    log "Verifying download checksum..."
-    verify_sha256 "$TEMP_DIR/tibia.x64.tar.gz" "$TIBIA_SHA256" || die "Checksum verification failed."
+    log "Verifying archive checksum..."
+    verify_sha256 "$TIBIA_ARCHIVE" "$TIBIA_SHA256" || die "Checksum verification failed."
 fi
 
 log "Extracting archive..."
-tar -xzf "$TEMP_DIR/tibia.x64.tar.gz" -C "$TEMP_DIR" || die "Failed to extract archive"
+tar -xzf "$TIBIA_ARCHIVE" -C "$TEMP_DIR" || die "Failed to extract archive"
 
 # The official tarball extracts to a folder called "Tibia"
 if [[ ! -d "$TEMP_DIR/Tibia" ]]; then
