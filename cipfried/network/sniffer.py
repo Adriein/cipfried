@@ -39,6 +39,7 @@ class TibiaSniffer:
         self._cipher: XteaCipher | None = None
         self._sniffer: AsyncSniffer | None = None
         self._streams: dict[TcpEndpoint, _StreamState] = {}
+        self._active_server: tuple[str, int] | None = None
 
     @property
     def is_running(self) -> bool:
@@ -76,6 +77,7 @@ class TibiaSniffer:
             logger.info("Stopped Tibia packet sniffer.")
 
         self._streams.clear()
+        self._active_server = None
 
     def _handle_packet(self, packet: Any) -> None:
         tcp = packet.getlayer(TCP)
@@ -97,10 +99,18 @@ class TibiaSniffer:
 
         endpoint: TcpEndpoint = (ip.src, int(tcp.sport), ip.dst, int(tcp.dport))
         stream_ended = bool(int(tcp.flags) & TCP_STREAM_END_FLAGS)
+        server_endpoint = (ip.dst, int(tcp.dport)) if from_client else (ip.src, int(tcp.sport))
+
+        if self._active_server is not None and server_endpoint != self._active_server:
+            if stream_ended:
+                self._streams.pop(endpoint, None)
+
+            return
 
         if not packet.haslayer(Raw):
             if stream_ended:
                 self._streams.pop(endpoint, None)
+                self._clear_active_server(server_endpoint)
 
             return
 
@@ -124,11 +134,25 @@ class TibiaSniffer:
             self._streams.pop(endpoint, None)
             return
 
+        if not from_client and self._active_server is None and any(
+            tibia_packet.decrypted for tibia_packet in packets
+        ):
+            self._active_server = server_endpoint
+            logger.info(
+                "Using Tibia server endpoint %s:%d; ignoring other server streams.",
+                *server_endpoint,
+            )
+
         for tibia_packet in packets:
             self._dispatch(tibia_packet)
 
         if stream_ended:
             self._streams.pop(endpoint, None)
+            self._clear_active_server(server_endpoint)
+
+    def _clear_active_server(self, server_endpoint: tuple[str, int]) -> None:
+        if self._active_server == server_endpoint:
+            self._active_server = None
 
     def _dispatch(self, packet: TibiaPacket) -> None:
         if self._on_packet is None:

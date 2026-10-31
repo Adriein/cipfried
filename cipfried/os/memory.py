@@ -113,8 +113,9 @@ class Memory:
     @staticmethod
     def _matches_name(cmdline: str, name: str) -> bool:
         executable = cmdline.split("\0", 1)[0]
+        parts = executable.split(os.sep)
 
-        return bool(executable) and name in executable.split(os.sep)
+        return bool(executable) and name in parts and "libexec" not in parts
 
     @staticmethod
     def _read_at(mem: BinaryIO, address: int, size: int) -> bytes:

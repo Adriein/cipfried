@@ -25,7 +25,7 @@ class TibiaDecompressor:
         try:
             result = self._decompressor.decompress(data)
         except zlib.error:
-            logger.warning("Resetting Tibia decompression stream after zlib error.")
+            logger.debug("Resetting Tibia decompression stream after zlib error.")
             self._decompressor = zlib.decompressobj(wbits=-zlib.MAX_WBITS)
 
             try:
