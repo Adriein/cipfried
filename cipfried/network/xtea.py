@@ -97,19 +97,27 @@ class XteaCipher:
             raise ValueError(f"XTEA data length must be a multiple of {XTEA_BLOCK_SIZE} bytes")
 
 
-def find_xtea_key(process: MemoryProcess) -> XteaKey:
-    """Finds the XTEA key in the Tibia process memory using its anchor."""
+def find_xtea_key_addresses(process: MemoryProcess) -> list[int]:
+    """Returns every candidate XTEA key address found via the anchor pair."""
     addresses = process.scan_memory(XTEA_KEY_ANCHOR)
-    key_address: int | None = None
+    key_addresses: list[int] = []
 
     for previous, current in zip(addresses, addresses[1:], strict=False):
         if current - previous == XTEA_KEY_ANCHOR_DISTANCE:
             key_address = current - XTEA_KEY_OFFSET
 
-    if key_address is None:
+            if key_address not in key_addresses:
+                key_addresses.append(key_address)
+
+    if not key_addresses:
         raise ValueError("No XTEA key found in process memory")
 
-    key = XteaKey.from_bytes(process.read_memory(key_address, XTEA_KEY_SIZE))
+    return key_addresses
+
+
+def find_xtea_key(process: MemoryProcess) -> XteaKey:
+    """Finds the last XTEA key candidate in the Tibia process memory."""
+    key = XteaKey.from_bytes(process.read_memory(find_xtea_key_addresses(process)[-1], XTEA_KEY_SIZE))
     logger.debug("XTEA key found.")
 
     return key

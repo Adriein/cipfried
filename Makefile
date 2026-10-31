@@ -3,13 +3,15 @@ PYTHON = .venv/bin/python
 PIP = .venv/bin/pip
 
 # Default target
-.PHONY: help venv install run lint typecheck build clean
+.PHONY: help venv install run lint typecheck test check build clean
 help:
 	@echo "make venv       - Create virtual environment"
 	@echo "make install    - Install the project and dev dependencies"
 	@echo "make run        - Run the app (using venv)"
 	@echo "make lint       - Run ruff"
 	@echo "make typecheck  - Run mypy"
+	@echo "make test       - Run the test suite"
+	@echo "make check      - Run lint, typecheck, and tests"
 	@echo "make clean      - Remove build artifacts and caches"
 	@echo "make build      - Build executable with PyInstaller"
 
@@ -33,6 +35,13 @@ lint:
 # Run type checker
 typecheck:
 	$(PYTHON) -m mypy
+
+# Run tests
+test:
+	$(PYTHON) -m pytest
+
+# Run all checks
+check: lint typecheck test
 
 # Build executable
 build: install

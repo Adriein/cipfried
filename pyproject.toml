@@ -18,6 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "mypy>=1.10",
+    "pytest>=8.0",
     "ruff>=0.6",
 ]
 build = [
@@ -48,3 +49,7 @@ check_untyped_defs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
 warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

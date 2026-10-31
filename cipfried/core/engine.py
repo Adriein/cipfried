@@ -7,9 +7,10 @@ import keyboard
 
 from cipfried.core.constants import EngineCommand, GameState
 from cipfried.core.context import Context, State
+from cipfried.network.key_provider import XteaKeyProvider
 from cipfried.network.protocol import TibiaPacket
 from cipfried.network.sniffer import TibiaSniffer
-from cipfried.network.xtea import XteaCipher, XteaKey, find_xtea_key
+from cipfried.network.xtea import XteaCipher, XteaKey
 from cipfried.os.memory import Memory
 from cipfried.os.process import Process
 
@@ -28,6 +29,7 @@ class Engine:
         self._sniffer = sniffer if sniffer is not None else TibiaSniffer()
         self._sniffer.set_handler(self._on_packet)
         self._xtea_key: XteaKey | None = None
+        self._key_provider = XteaKeyProvider()
         self._key_stop = threading.Event()
         self._key_thread: threading.Thread | None = None
 
@@ -56,6 +58,7 @@ class Engine:
         finally:
             self._stop_key_watcher()
             self._xtea_key = None
+            self._key_provider.reset()
             self._sniffer.set_cipher(None)
             self._sniffer.stop()
             self._ctx.game_state.current = GameState.Stopped
@@ -93,6 +96,7 @@ class Engine:
 
             logger.warning("%s process exited; waiting for restart...", self._process.name)
             self._xtea_key = None
+            self._key_provider.reset()
             self._sniffer.set_cipher(None)
             self._sniffer.stop()
             self._ctx.game_state.current = GameState.Starting
@@ -138,13 +142,22 @@ class Engine:
         if self._key_stop.is_set() or self._process.pid is None:
             return
 
+        current = self._xtea_key
+        force_rescan = (
+            current is not None
+            and self._sniffer.has_buffered_server_data()
+            and not self._sniffer.validate_cipher(XteaCipher(current))
+        )
+
         try:
-            key = find_xtea_key(self._process)
+            candidates = self._key_provider.candidates(self._process, force_rescan=force_rescan)
         except (OSError, RuntimeError, ValueError) as error:
             logger.debug("XTEA key not available: %s", error)
             return
 
-        if key == self._xtea_key:
+        key = self._select_key(candidates)
+
+        if key is None or key == self._xtea_key:
             return
 
         changed = self._xtea_key is not None
@@ -152,11 +165,35 @@ class Engine:
         self._sniffer.set_cipher(XteaCipher(key))
         logger.info("XTEA key %s.", "changed" if changed else "loaded")
 
+    def _select_key(self, candidates: list[XteaKey]) -> XteaKey | None:
+        if not candidates:
+            return None
+
+        current = self._xtea_key
+
+        if current is not None and self._sniffer.validate_cipher(XteaCipher(current)):
+            return current
+
+        for candidate in candidates:
+            if candidate == current:
+                continue
+
+            if self._sniffer.validate_cipher(XteaCipher(candidate)):
+                return candidate
+
+        if current is None or current not in candidates:
+            return candidates[0]
+
+        return current
+
     def _on_packet(self, packet: TibiaPacket) -> None:
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+
         direction = "client" if packet.from_client else "server"
 
         if not packet.decrypted:
-            logger.info(
+            logger.debug(
                 "%s seq=%d encrypted=%d bytes compressed=%s",
                 direction,
                 packet.sequence,
@@ -166,7 +203,7 @@ class Engine:
             return
 
         command = f"0x{packet.command:02X}" if packet.command is not None else "none"
-        logger.info(
+        logger.debug(
             "%s seq=%d cmd=%s len=%d compressed=%s",
             direction,
             packet.sequence,
