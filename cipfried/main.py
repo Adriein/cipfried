@@ -1,6 +1,7 @@
 import logging
 import os
 
+from cipfried.analysis import MessagePipeline
 from cipfried.core.engine import Engine
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -14,7 +15,8 @@ def configure_logging() -> None:
 def main() -> None:
     configure_logging()
 
-    engine = Engine()
+    pipeline = MessagePipeline()
+    engine = Engine(message_pipeline=pipeline)
     engine.start()
 
 

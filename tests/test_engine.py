@@ -1,5 +1,6 @@
 from cipfried.core.engine import Engine
 from cipfried.network.key_provider import XteaKeyProvider
+from cipfried.network.protocol import TibiaPacket
 from cipfried.network.xtea import (
     XTEA_KEY_ANCHOR,
     XTEA_KEY_ANCHOR_DISTANCE,
@@ -131,6 +132,31 @@ def test_refresh_does_nothing_without_hooked_process() -> None:
 
     assert engine._xtea_key is None
     assert sniffer.cipher is None
+
+
+class RecordingPipeline:
+    def __init__(self) -> None:
+        self.packets: list[TibiaPacket] = []
+
+    def feed(self, packet: TibiaPacket) -> None:
+        self.packets.append(packet)
+
+
+def test_engine_forwards_packets_to_message_pipeline() -> None:
+    pipeline = RecordingPipeline()
+    engine = Engine(process=FakeProcess(), sniffer=FakeSniffer(), message_pipeline=pipeline)  # type: ignore[arg-type]
+    packet = TibiaPacket(
+        from_client=False,
+        sequence=1,
+        compressed=False,
+        decrypted=True,
+        payload=b"\x42\x07",
+        encrypted_payload=b"",
+    )
+
+    engine._on_packet(packet)
+
+    assert pipeline.packets == [packet]
 
 
 def test_key_provider_reset_clears_cached_pid() -> None:

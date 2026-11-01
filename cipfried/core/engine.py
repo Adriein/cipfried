@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 import keyboard
 
+from cipfried.analysis.pipeline import MessagePipeline
 from cipfried.core.constants import EngineCommand, GameState
 from cipfried.core.context import Context, State
 from cipfried.network.key_provider import XteaKeyProvider
@@ -20,7 +21,12 @@ KEY_POLL_INTERVAL = 5.0
 
 
 class Engine:
-    def __init__(self, process: Process | None = None, sniffer: TibiaSniffer | None = None) -> None:
+    def __init__(
+        self,
+        process: Process | None = None,
+        sniffer: TibiaSniffer | None = None,
+        message_pipeline: MessagePipeline | None = None,
+    ) -> None:
         self._process = process if process is not None else Process(Memory())
         self._state = State()
         self._ctx = Context(game_state=self._state)
@@ -28,6 +34,7 @@ class Engine:
         self._hotkey_handle: Callable[[], None] | None = None
         self._sniffer = sniffer if sniffer is not None else TibiaSniffer()
         self._sniffer.set_handler(self._on_packet)
+        self._message_pipeline = message_pipeline
         self._xtea_key: XteaKey | None = None
         self._key_provider = XteaKeyProvider()
         self._key_stop = threading.Event()
@@ -187,6 +194,9 @@ class Engine:
         return current
 
     def _on_packet(self, packet: TibiaPacket) -> None:
+        if self._message_pipeline is not None:
+            self._message_pipeline.feed(packet)
+
         if not logger.isEnabledFor(logging.DEBUG):
             return
 
