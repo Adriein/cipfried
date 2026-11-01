@@ -406,5 +406,6 @@ class TibiaStreamDecoder:
 
         excess = len(self._buffer) - self._max_pending_bytes
         del self._buffer[:excess]
-        logger.warning("Tibia %s pending buffer exceeded %d bytes; dropping oldest data.",
-                       self._direction, self._max_pending_bytes)
+        logger.warning(
+            "Tibia %s pending buffer exceeded %d bytes; dropping oldest data.", self._direction, self._max_pending_bytes
+        )

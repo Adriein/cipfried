@@ -215,6 +215,16 @@ class Engine:
         if packet.payload:
             logger.debug("%s payload: %s", direction, packet.payload[:128].hex(" "))
 
+            # Skip those with only 1 byte because it's ping commands
+            if direction != "client" and len(packet.payload) > 1: 
+                with open("base_sample.txt", "a") as f:
+                    cmd_hex = f"0x{packet.command:02X}"
+                    payload_hex = packet.payload[1:].hex(" ")
+
+                    log_line = f"cmd: {cmd_hex}, payload: {payload_hex}\n"
+
+                    f.write(log_line)
+
     def _set_stop_handler(self) -> None:
         if self._hotkey_handle is not None:
             return
