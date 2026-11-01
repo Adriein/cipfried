@@ -38,13 +38,6 @@ log "Using Tibia data directory: $TIBIA_DIR"
 
 mkdir -p "$MINIMAP_DIR"
 
-# Older versions of this script installed the minimap into /opt/Tibia, where
-# the client never looks. Merge those files without overwriting existing tiles.
-if [[ -d /opt/Tibia/minimap ]] && ! compgen -G "$MINIMAP_DIR/*.png" >/dev/null; then
-    log "Migrating maps from legacy /opt/Tibia/minimap…"
-    cp -n /opt/Tibia/minimap/*.png "$MINIMAP_DIR/" 2>/dev/null || true
-fi
-
 # ----------------------------------------------------------------------
 # Map selection
 # ----------------------------------------------------------------------
