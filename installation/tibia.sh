@@ -165,7 +165,17 @@ chmod 644 "$DESKTOP_FILE"
 log "Desktop entry created at $DESKTOP_FILE"
 
 # ----------------------------------------------------------------------
-# 5. Final success message
+# 5. Install minimap and fonts for the invoking user
+# ----------------------------------------------------------------------
+if [[ -f "$SCRIPT_DIR/post-install.sh" ]]; then
+    log "Running post-install (minimap + fonts)..."
+    bash "$SCRIPT_DIR/post-install.sh" || warn "Post-install failed; run it manually later"
+else
+    warn "post-install.sh not found – skipping minimap and fonts"
+fi
+
+# ----------------------------------------------------------------------
+# 6. Final success message
 # ----------------------------------------------------------------------
 clear
 echo -e "${NC}Tibia has been successfully installed!${GREEN}"

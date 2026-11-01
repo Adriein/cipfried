@@ -31,10 +31,7 @@ if [[ "${EUID}" -eq 0 ]]; then
     exit 1
 fi
 
-if ! TIBIA_DIR="$(find_tibia_dir)"; then
-    error "Tibia client not found! Install it first with tibia-arch.sh"
-    exit 1
-fi
+TIBIA_DIR="$(find_tibia_data_dir)"
 
 log "Using Tibia data directory: $TIBIA_DIR"
 
@@ -51,16 +48,21 @@ for helper in yay paru; do
     fi
 done
 
+# On Arch the Debian package name ttf-mscorefonts-installer does not exist.
+# The equivalent AUR packages are ttf-ms-fonts (core fonts) and ttf-tahoma,
+# which is the font Tibia is configured to use.
+FONT_PACKAGES=(ttf-ms-fonts ttf-tahoma)
+
 if [[ -z "$AUR_HELPER" ]]; then
     error "No AUR helper found (yay or paru)."
-    error "Install one, then run: yay -S ttf-mscorefonts-installer"
+    error "Install one, then run: yay -S ${FONT_PACKAGES[*]}"
     exit 1
 fi
 
-log "Using $AUR_HELPER to install ttf-mscorefonts-installer..."
-if ! "$AUR_HELPER" -S --needed --noconfirm ttf-mscorefonts-installer; then
-    error "Failed to install ttf-mscorefonts-installer via $AUR_HELPER."
-    error "Try manually: $AUR_HELPER -S ttf-mscorefonts-installer"
+log "Using $AUR_HELPER to install ${FONT_PACKAGES[*]}..."
+if ! "$AUR_HELPER" -S --needed --noconfirm "${FONT_PACKAGES[@]}"; then
+    error "Failed to install ${FONT_PACKAGES[*]} via $AUR_HELPER."
+    error "Try manually: $AUR_HELPER -S ${FONT_PACKAGES[*]}"
     exit 1
 fi
 

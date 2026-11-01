@@ -20,14 +20,30 @@ log() { echo -e "${GREEN}[MAPS]${NC} $*" ; }
 warn() { echo -e "${YELLOW}[MAPS] WARN:${NC} $*" ; }
 error() { echo -e "${RED}[MAPS] ERROR:${NC} $*" >&2 ; }
 
-if ! TIBIA_DIR="$(find_tibia_dir)"; then
-    error "Tibia client not found! Install it first with tibia.sh"
+# Minimaps live in the invoking user's home. Re-exec as that user when the
+# script is called from a root installer (e.g. tibia.sh / tibia-arch.sh).
+if [[ "${EUID}" -eq 0 ]]; then
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        warn "Running as root – re-executing as $SUDO_USER"
+        exec sudo -u "$SUDO_USER" -H bash "${BASH_SOURCE[0]}" "$@"
+    fi
+    error "Run this script as your normal user, not as root."
     exit 1
 fi
 
+TIBIA_DIR="$(find_tibia_data_dir)"
+MINIMAP_DIR="$TIBIA_DIR/minimap"
+
 log "Using Tibia data directory: $TIBIA_DIR"
 
-mkdir -p "$TIBIA_DIR"
+mkdir -p "$MINIMAP_DIR"
+
+# Older versions of this script installed the minimap into /opt/Tibia, where
+# the client never looks. Merge those files without overwriting existing tiles.
+if [[ -d /opt/Tibia/minimap ]] && ! compgen -G "$MINIMAP_DIR/*.png" >/dev/null; then
+    log "Migrating maps from legacy /opt/Tibia/minimap…"
+    cp -n /opt/Tibia/minimap/*.png "$MINIMAP_DIR/" 2>/dev/null || true
+fi
 
 # ----------------------------------------------------------------------
 # Map selection

@@ -1,21 +1,29 @@
 #!/usr/bin/env bash
 
-find_tibia_dir() {
-    local data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
-    local candidates=(
-        "$data_home/CipSoft GmbH/Tibia/packages/Tibia"
-        "/opt/Tibia"
-    )
-    local candidate
+real_user_home() {
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        getent passwd "$SUDO_USER" | cut -d: -f6
+    else
+        printf '%s\n' "$HOME"
+    fi
+}
 
-    for candidate in "${candidates[@]}"; do
-        if [[ -d "$candidate" ]]; then
-            echo "$candidate"
-            return 0
-        fi
-    done
+# The Tibia client reads and writes its minimap in the per-user data directory,
+# never in the installation directory (/opt/Tibia). Resolve that directory for
+# the invoking user and create it if needed.
+find_tibia_data_dir() {
+    local home data_home target
+    home="$(real_user_home)"
 
-    return 1
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        data_home="$home/.local/share"
+    else
+        data_home="${XDG_DATA_HOME:-$home/.local/share}"
+    fi
+
+    target="$data_home/CipSoft GmbH/Tibia/packages/Tibia"
+    mkdir -p "$target"
+    printf '%s\n' "$target"
 }
 
 find_tibia_tarball() {

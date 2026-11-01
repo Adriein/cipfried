@@ -20,12 +20,20 @@ log() { echo -e "${GREEN}[FONTS]${NC} $*" ; }
 warn() { echo -e "${YELLOW}[FONTS] WARN:${NC} $*" ; }
 error() { echo -e "${RED}[FONTS] ERROR:${NC} $*" >&2 ; }
 
-readonly TEMP_DIR="$(mktemp -d -t tibia-fonts-XXXXXXXXXX)"
-
-if ! TIBIA_DIR="$(find_tibia_dir)"; then
-    error "Tibia client not found! Install it first with tibia.sh"
+# Fonts and the Tibia config live in the invoking user's home. Re-exec as that
+# user when called from a root installer (e.g. tibia.sh).
+if [[ "${EUID}" -eq 0 ]]; then
+    if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+        warn "Running as root – re-executing as $SUDO_USER"
+        exec sudo -u "$SUDO_USER" -H bash "${BASH_SOURCE[0]}" "$@"
+    fi
+    error "Run this script as your normal user, not as root."
     exit 1
 fi
+
+readonly TEMP_DIR="$(mktemp -d -t tibia-fonts-XXXXXXXXXX)"
+
+TIBIA_DIR="$(find_tibia_data_dir)"
 
 log "Using Tibia data directory: $TIBIA_DIR"
 
