@@ -13,7 +13,7 @@ class CreatureMoveParser:
     the payload.
     """
 
-    opcode = ServerOpcode.CREATURE_MOVE
+    opcode: int = ServerOpcode.CREATURE_MOVE
 
     def parse(self, reader: ByteReader) -> CreatureMovement:
         old_pos = Position(x=reader.read_u16(), y=reader.read_u16(), z=reader.read_u8())

@@ -2,6 +2,8 @@ import logging
 import os
 
 from cipfried.analysis import MessagePipeline
+from cipfried.analysis.parsers import CreatureMoveParser
+from cipfried.bot import log_creature_movement
 from cipfried.core.engine import Engine
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -16,6 +18,8 @@ def main() -> None:
     configure_logging()
 
     pipeline = MessagePipeline()
+    pipeline.register(CreatureMoveParser())
+    pipeline.add_listener(log_creature_movement)
     engine = Engine(message_pipeline=pipeline)
     engine.start()
 
