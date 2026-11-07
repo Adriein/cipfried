@@ -21,5 +21,9 @@ class CreatureMovement(GameMessage):
     old_stackpos: int
     new_position: Position
 
+@dataclass(frozen=True)
+class LoginSuccess(GameMessage):
+    player_id: int
 
-__all__ = ["CreatureMovement", "GameMessage"]
+
+__all__ = ["CreatureMovement", "GameMessage", "LoginSuccess"]

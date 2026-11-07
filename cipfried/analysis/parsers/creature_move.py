@@ -1,10 +1,11 @@
 from cipfried.analysis.opcodes import ServerOpcode
+from cipfried.analysis.parser import MessageParser
 from cipfried.analysis.reader import ByteReader
 from cipfried.game.messages import CreatureMovement
 from cipfried.game.position import Position
 
 
-class CreatureMoveParser:
+class CreatureMoveParser(MessageParser):
     """Decodes a creature movement message.
 
     The pipeline consumes the opcode before calling ``parse``. Fill in the

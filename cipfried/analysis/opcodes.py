@@ -9,6 +9,9 @@ class ServerOpcode(IntEnum):
     """
 
     CREATURE_MOVE = 0x6D
+    LOGIN_SUCCESS = 0x17
+    OPEN_CHANNEL = 0xAC
+    FULL_MAP = 0x64
 
 
 __all__ = ["ServerOpcode"]
