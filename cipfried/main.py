@@ -2,7 +2,7 @@ import logging
 import os
 
 from cipfried.analysis import MessagePipeline
-from cipfried.analysis.parsers import CreatureMoveParser
+from cipfried.analysis.parsers import CreatureMoveParser, LoginSuccessParser, OpenChannelParser
 from cipfried.bot import log_creature_movement
 from cipfried.core.engine import Engine
 
@@ -19,6 +19,8 @@ def main() -> None:
 
     pipeline = MessagePipeline()
     pipeline.register(CreatureMoveParser())
+    pipeline.register(LoginSuccessParser())
+    pipeline.register(OpenChannelParser())
     pipeline.add_listener(log_creature_movement)
     engine = Engine(message_pipeline=pipeline)
     engine.start()

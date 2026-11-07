@@ -6,7 +6,7 @@ from cipfried.game.messages import GameMessage
 
 
 class OpenChannelParser(MessageParser):
-    """Decodes login success message.
+    """Decodes open channel message.
 
     The pipeline consumes the opcode before calling ``parse``. Fill in the
     field reads you already worked out; the reader must be advanced by exactly

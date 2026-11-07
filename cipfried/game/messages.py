@@ -21,9 +21,17 @@ class CreatureMovement(GameMessage):
     old_stackpos: int
     new_position: Position
 
+
 @dataclass(frozen=True)
 class LoginSuccess(GameMessage):
     player_id: int
 
 
-__all__ = ["CreatureMovement", "GameMessage", "LoginSuccess"]
+@dataclass(frozen=True)
+class FullMap(GameMessage):
+    player_position: Position
+
+
+
+
+__all__ = ["CreatureMovement", "GameMessage", "LoginSuccess", "FullMap"]
