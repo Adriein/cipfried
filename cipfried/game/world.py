@@ -1,15 +1,8 @@
 import threading
-from dataclasses import dataclass, field
 
+from cipfried.game.creature import Creature
 from cipfried.game.messages import CreatureMovement, FullMap, GameMessage, LoginSuccess
 from cipfried.game.position import Position
-
-
-@dataclass
-class Creature:
-    id: int
-    name: str = ""
-    position: Position = field(default_factory=lambda: Position(0, 0, 0))
 
 
 class WorldState:
