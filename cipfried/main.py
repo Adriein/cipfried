@@ -22,7 +22,9 @@ def main() -> None:
     pipeline.register(LoginSuccessParser())
     pipeline.register(OpenChannelParser())
     pipeline.add_listener(log_creature_movement)
+
     engine = Engine(message_pipeline=pipeline)
+    pipeline.add_listener(engine.context.world.apply_message)
     engine.start()
 
 

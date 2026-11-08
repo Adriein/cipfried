@@ -38,9 +38,9 @@ class PipelineStats:
 class MessagePipeline:
     """Maps opaque payload bytes to typed game messages.
 
-    Parsing happens on the caller's thread (the capture thread). Keep parsers
-    cheap and stateless; hand expensive work to a worker that reads the latest
-    value from a ``LatestValue`` slot instead of building a backlog.
+    Parsing happens on the analysis worker thread, decoupled from packet capture.
+    Keep parsers cheap and stateless; hand expensive bot decisions to a separate
+    bot worker reading world state.
     """
 
     def __init__(self, *, on_message: MessageListener | None = None) -> None:

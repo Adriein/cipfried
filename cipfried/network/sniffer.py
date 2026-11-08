@@ -10,6 +10,12 @@ from scapy.layers.inet6 import IPv6
 from scapy.packet import Raw
 from scapy.sendrecv import AsyncSniffer
 
+from cipfried.config.settings import (
+    DEFAULT_ACTIVE_TIMEOUT,
+    DEFAULT_MAX_PENDING_PACKETS,
+    DEFAULT_SERVER_CONFIRM_PACKETS,
+    DEFAULT_SERVER_PORT,
+)
 from cipfried.network.protocol import (
     TibiaPacket,
     TibiaProtocolError,
@@ -28,9 +34,9 @@ TCP_SYN: Final = 0x02
 TCP_RST: Final = 0x04
 TCP_STREAM_END_FLAGS: Final = TCP_FIN | TCP_RST
 
-ACTIVE_TIMEOUT: Final = 10.0
-SERVER_CONFIRM_PACKETS: Final = 2
-MAX_PENDING_PACKETS: Final = 256
+ACTIVE_TIMEOUT: Final = DEFAULT_ACTIVE_TIMEOUT
+SERVER_CONFIRM_PACKETS: Final = DEFAULT_SERVER_CONFIRM_PACKETS
+MAX_PENDING_PACKETS: Final = DEFAULT_MAX_PENDING_PACKETS
 
 
 @dataclass
@@ -44,7 +50,7 @@ class _StreamState:
 
 
 class TibiaSniffer:
-    TIBIA_SERVER_PORT: Final = 7171
+    TIBIA_SERVER_PORT: Final = DEFAULT_SERVER_PORT
 
     def __init__(
         self,

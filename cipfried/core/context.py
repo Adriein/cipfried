@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from cipfried.core.constants import GameState
+from cipfried.game.world import WorldState
 
 
 class State:
@@ -13,6 +14,7 @@ class State:
 @dataclass
 class Context:
     game_state: State
+    world: WorldState = field(default_factory=WorldState)
 
 
 __all__ = ["Context", "State"]

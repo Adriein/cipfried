@@ -1,4 +1,5 @@
 import logging
+import queue
 import threading
 import time
 from collections.abc import Callable
@@ -6,6 +7,7 @@ from collections.abc import Callable
 import keyboard
 
 from cipfried.analysis.pipeline import MessagePipeline
+from cipfried.config.settings import DEFAULT_KEY_POLL_INTERVAL, DEFAULT_PACKET_QUEUE_SIZE
 from cipfried.core.constants import EngineCommand, GameState
 from cipfried.core.context import Context, State
 from cipfried.network.key_provider import XteaKeyProvider
@@ -17,7 +19,7 @@ from cipfried.os.process import Process
 
 logger = logging.getLogger(__name__)
 
-KEY_POLL_INTERVAL = 5.0
+KEY_POLL_INTERVAL = DEFAULT_KEY_POLL_INTERVAL
 
 
 class Engine:
@@ -26,12 +28,22 @@ class Engine:
         process: Process | None = None,
         sniffer: TibiaSniffer | None = None,
         message_pipeline: MessagePipeline | None = None,
+        packet_queue_size: int = DEFAULT_PACKET_QUEUE_SIZE,
+        context: Context | None = None,
     ) -> None:
         self._process = process if process is not None else Process(Memory())
-        self._state = State()
-        self._ctx = Context(game_state=self._state)
+        if context is not None:
+            self._ctx = context
+            self._state = context.game_state
+        else:
+            self._state = State()
+            self._ctx = Context(game_state=self._state)
+
         self._stop_event = threading.Event()
         self._hotkey_handle: Callable[[], None] | None = None
+        self._packet_queue: queue.Queue[TibiaPacket | None] = queue.Queue(maxsize=packet_queue_size)
+        self._pipeline_stop = threading.Event()
+        self._pipeline_thread: threading.Thread | None = None
         self._sniffer = sniffer if sniffer is not None else TibiaSniffer()
         self._sniffer.set_handler(self._on_packet)
         self._message_pipeline = message_pipeline
@@ -39,6 +51,10 @@ class Engine:
         self._key_provider = XteaKeyProvider()
         self._key_stop = threading.Event()
         self._key_thread: threading.Thread | None = None
+
+    @property
+    def context(self) -> Context:
+        return self._ctx
 
     def start(self) -> None:
         if self._ctx.game_state.current != GameState.Stopped:
@@ -52,6 +68,7 @@ class Engine:
 
         try:
             self._set_stop_handler()
+            self._start_pipeline_worker()
             self._start_sniffer()
             self._start_key_watcher()
             self._wait_for_process()
@@ -68,6 +85,7 @@ class Engine:
             self._key_provider.reset()
             self._sniffer.set_cipher(None)
             self._sniffer.stop()
+            self._stop_pipeline_worker()
             self._ctx.game_state.current = GameState.Stopped
             self._remove_stop_handler()
             logger.info("cipfried engine stopped.")
@@ -138,6 +156,53 @@ class Engine:
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=2.0)
 
+    def _start_pipeline_worker(self) -> None:
+        if self._pipeline_thread is not None:
+            return
+
+        self._pipeline_stop.clear()
+        self._pipeline_thread = threading.Thread(
+            target=self._run_pipeline_worker,
+            name="cipfried-pipeline",
+            daemon=True,
+        )
+        self._pipeline_thread.start()
+
+    def _stop_pipeline_worker(self) -> None:
+        self._pipeline_stop.set()
+        try:
+            self._packet_queue.put_nowait(None)
+        except queue.Full:
+            pass
+
+        thread = self._pipeline_thread
+        self._pipeline_thread = None
+
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+
+    def _run_pipeline_worker(self) -> None:
+        logger.info("Pipeline worker started.")
+
+        while not self._pipeline_stop.is_set():
+            try:
+                packet = self._packet_queue.get(timeout=0.2)
+            except queue.Empty:
+                continue
+
+            if packet is None:
+                self._packet_queue.task_done()
+                break
+
+            try:
+                self._process_packet(packet)
+            except Exception:
+                logger.exception("Unexpected error in pipeline worker processing packet.")
+            finally:
+                self._packet_queue.task_done()
+
+        logger.info("Pipeline worker stopped.")
+
     def _watch_key(self) -> None:
         logger.info("Watching for the XTEA key...")
 
@@ -194,8 +259,22 @@ class Engine:
         return current
 
     def _on_packet(self, packet: TibiaPacket) -> None:
+        """Enqueue packet received on the sniffer thread for asynchronous processing."""
+        try:
+            self._packet_queue.put_nowait(packet)
+        except queue.Full:
+            logger.warning(
+                "Packet queue full (maxsize=%d); dropped packet seq=%d.",
+                self._packet_queue.maxsize,
+                packet.sequence,
+            )
+
+    def _process_packet(self, packet: TibiaPacket) -> None:
         if self._message_pipeline is not None:
-            self._message_pipeline.feed(packet)
+            try:
+                self._message_pipeline.feed(packet)
+            except Exception:
+                logger.exception("Message pipeline failed processing packet seq=%d.", packet.sequence)
 
         if not logger.isEnabledFor(logging.DEBUG):
             return
@@ -227,7 +306,7 @@ class Engine:
 
             # Skip those with only 1 byte because it's ping commands
             if direction != "client" and len(packet.payload) > 1: 
-                with open("base_sample.txt", "a") as f:
+                with open("debug/two_creatures_walking.txt", "a") as f:
                     cmd_hex = f"0x{packet.command:02X}"
                     payload_hex = packet.payload[1:].hex(" ")
 

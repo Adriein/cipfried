@@ -142,7 +142,7 @@ class RecordingPipeline:
         self.packets.append(packet)
 
 
-def test_engine_forwards_packets_to_message_pipeline() -> None:
+def test_engine_process_packet_forwards_to_message_pipeline() -> None:
     pipeline = RecordingPipeline()
     engine = Engine(process=FakeProcess(), sniffer=FakeSniffer(), message_pipeline=pipeline)  # type: ignore[arg-type]
     packet = TibiaPacket(
@@ -154,9 +154,104 @@ def test_engine_forwards_packets_to_message_pipeline() -> None:
         encrypted_payload=b"",
     )
 
-    engine._on_packet(packet)
+    engine._process_packet(packet)
 
     assert pipeline.packets == [packet]
+
+
+def test_engine_on_packet_enqueues_packet() -> None:
+    engine = Engine(process=FakeProcess(), sniffer=FakeSniffer())  # type: ignore[arg-type]
+    packet = TibiaPacket(
+        from_client=False,
+        sequence=1,
+        compressed=False,
+        decrypted=True,
+        payload=b"\x42\x07",
+        encrypted_payload=b"",
+    )
+
+    engine._on_packet(packet)
+
+    assert engine._packet_queue.get_nowait() == packet
+
+
+def test_engine_on_packet_drops_when_queue_full() -> None:
+    engine = Engine(process=FakeProcess(), sniffer=FakeSniffer(), packet_queue_size=1)  # type: ignore[arg-type]
+    packet1 = TibiaPacket(
+        from_client=False,
+        sequence=1,
+        compressed=False,
+        decrypted=True,
+        payload=b"\x42\x07",
+        encrypted_payload=b"",
+    )
+    packet2 = TibiaPacket(
+        from_client=False,
+        sequence=2,
+        compressed=False,
+        decrypted=True,
+        payload=b"\x42\x08",
+        encrypted_payload=b"",
+    )
+
+    engine._on_packet(packet1)
+    # Should not raise queue.Full
+    engine._on_packet(packet2)
+
+    assert engine._packet_queue.get_nowait() == packet1
+    assert engine._packet_queue.empty()
+
+
+def test_engine_pipeline_worker_processes_queued_packets() -> None:
+    pipeline = RecordingPipeline()
+    engine = Engine(process=FakeProcess(), sniffer=FakeSniffer(), message_pipeline=pipeline)  # type: ignore[arg-type]
+    packet = TibiaPacket(
+        from_client=False,
+        sequence=1,
+        compressed=False,
+        decrypted=True,
+        payload=b"\x42\x07",
+        encrypted_payload=b"",
+    )
+
+    engine._start_pipeline_worker()
+    try:
+        engine._on_packet(packet)
+        engine._packet_queue.join()
+        assert pipeline.packets == [packet]
+    finally:
+        engine._stop_pipeline_worker()
+
+
+def test_engine_pipeline_worker_handles_exception_gracefully() -> None:
+    class FailingPipeline:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def feed(self, packet: TibiaPacket) -> None:
+            self.calls += 1
+            raise RuntimeError("Parser failure")
+
+    pipeline = FailingPipeline()
+    engine = Engine(process=FakeProcess(), sniffer=FakeSniffer(), message_pipeline=pipeline)  # type: ignore[arg-type]
+    packet = TibiaPacket(
+        from_client=False,
+        sequence=1,
+        compressed=False,
+        decrypted=True,
+        payload=b"\x42\x07",
+        encrypted_payload=b"",
+    )
+
+    engine._start_pipeline_worker()
+    try:
+        engine._on_packet(packet)
+        engine._packet_queue.join()
+        assert pipeline.calls == 1
+        assert engine._pipeline_thread is not None
+        assert engine._pipeline_thread.is_alive()
+    finally:
+        engine._stop_pipeline_worker()
 
 
 def test_key_provider_reset_clears_cached_pid() -> None:

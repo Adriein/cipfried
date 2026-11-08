@@ -2,6 +2,7 @@ import logging
 import time
 from typing import Final, Protocol
 
+from cipfried.config.settings import DEFAULT_RESCAN_INTERVAL
 from cipfried.network.xtea import (
     XTEA_KEY_SIZE,
     MemoryProcess,
@@ -11,7 +12,7 @@ from cipfried.network.xtea import (
 
 logger = logging.getLogger(__name__)
 
-RESCAN_INTERVAL: Final = 30.0
+RESCAN_INTERVAL: Final = DEFAULT_RESCAN_INTERVAL
 
 
 class KeyProcess(MemoryProcess, Protocol):
