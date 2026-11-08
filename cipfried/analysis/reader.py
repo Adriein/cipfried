@@ -34,6 +34,11 @@ class ByteReader:
     def read_u32(self) -> int:
         return int.from_bytes(self._read(4), "little")
 
+    def read_string(self) -> str:
+        len = int.from_bytes(self.read_bytes(2), "little")
+
+        return self.read_bytes(len).decode("utf-8")
+
     def read_bytes(self, size: int) -> bytes:
         if size < 0:
             raise ValueError("size must not be negative")
@@ -48,6 +53,9 @@ class ByteReader:
 
     def peek_u8(self) -> int:
         return self._peek(1)[0]
+
+    def peek_bytes(self, len: int) -> bytes:
+        return self._peek(len)
 
     def _read(self, size: int) -> bytes:
         if size > self.remaining:

@@ -306,7 +306,7 @@ class Engine:
 
             # Skip those with only 1 byte because it's ping commands
             if direction != "client" and len(packet.payload) > 1: 
-                with open("debug/two_creatures_walking.txt", "a") as f:
+                with open("debug/floor_items.txt", "a") as f:
                     cmd_hex = f"0x{packet.command:02X}"
                     payload_hex = packet.payload[1:].hex(" ")
 

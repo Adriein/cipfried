@@ -1,8 +1,7 @@
-
 from cipfried.analysis.opcodes import ServerOpcode
 from cipfried.analysis.parser import MessageParser
 from cipfried.analysis.reader import ByteReader
-from cipfried.game.messages import GameMessage
+from cipfried.game.messages import OpenChannel
 
 
 class OpenChannelParser(MessageParser):
@@ -16,7 +15,16 @@ class OpenChannelParser(MessageParser):
 
     opcode: int = ServerOpcode.OPEN_CHANNEL
 
-    def parse(self, reader: ByteReader) -> GameMessage:
-        reader.skip(13)
+    def parse(self, reader: ByteReader) -> OpenChannel:
+        chan_id = reader.read_u16()
+        chan_name = reader.read_string()
+        active_usr = reader.read_u16()
+        invited_usr = reader.read_u16()
 
-        return GameMessage(opcode=self.opcode)
+        return OpenChannel(
+            opcode=self.opcode,
+            channel_id=chan_id,
+            channel_name=chan_name,
+            current_users=active_usr,
+            invited_users=invited_usr,
+        )

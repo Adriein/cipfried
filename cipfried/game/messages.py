@@ -28,6 +28,14 @@ class LoginSuccess(GameMessage):
 
 
 @dataclass(frozen=True)
+class OpenChannel(GameMessage):
+    channel_id: int
+    channel_name: str
+    current_users: int
+    invited_users: int
+
+
+@dataclass(frozen=True)
 class FullMap(GameMessage):
     player_position: Position
 

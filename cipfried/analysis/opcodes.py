@@ -12,6 +12,7 @@ class ServerOpcode(IntEnum):
     LOGIN_SUCCESS = 0x17
     OPEN_CHANNEL = 0xAC
     FULL_MAP = 0x64
+    WORLD_ENTERED = 0x0F
 
 
 __all__ = ["ServerOpcode"]
