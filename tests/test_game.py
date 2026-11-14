@@ -113,6 +113,90 @@ def test_item_and_creature_tile_structure() -> None:
     assert tile.creatures == [creature]
     assert creature.position == tile.position
 
+    tile.remove_creature(creature)
+    assert tile.creatures == []
+
+
+def test_world_state_tiles_storage() -> None:
+    world = WorldState()
+    pos = Position(32000, 32000, 7)
+    tile = Tile(position=pos, ground_id=100)
+
+    world.set_tile(tile)
+    assert world.get_tile(pos) == tile
+    assert world.tiles[pos] == tile
+
+    world.reset()
+    assert world.get_tile(pos) is None
+    assert world.tiles == {}
+
+
+def test_world_state_full_map_populates_tiles_and_creatures() -> None:
+    world = WorldState()
+    p_pos = Position(32000, 32000, 7)
+    c_pos = Position(32001, 32000, 7)
+
+    creature = Creature(id=0x40000001, name="Rat", position=c_pos)
+    tile1 = Tile(position=p_pos, ground_id=100)
+    tile2 = Tile(position=c_pos, ground_id=101)
+    tile2.add_creature(creature)
+
+    msg = FullMap(opcode=0x64, player_position=p_pos, tiles=(tile1, tile2))
+    world.apply_message(msg)
+
+    assert world.player_position == p_pos
+    assert world.get_tile(p_pos) == tile1
+    assert world.get_tile(c_pos) == tile2
+    assert world.get_creature(0x40000001) == creature
+
+
+def test_world_state_creature_movement_updates_tiles_and_creatures() -> None:
+    world = WorldState()
+    old_pos = Position(32000, 32000, 7)
+    new_pos = Position(32001, 32000, 7)
+
+    creature = Creature(id=0x40000001, name="Rat", position=old_pos)
+    old_tile = Tile(position=old_pos, ground_id=100)
+    old_tile.add_creature(creature)
+    new_tile = Tile(position=new_pos, ground_id=100)
+
+    world.set_tile(old_tile)
+    world.set_tile(new_tile)
+    assert creature in world.get_tile(old_pos).creatures
+
+    # Move creature from old_pos to new_pos
+    movement = CreatureMovement(
+        opcode=0x6D,
+        old_position=old_pos,
+        old_stackpos=0,
+        new_position=new_pos,
+    )
+    world.apply_message(movement)
+
+    # Creature should be removed from old tile
+    assert creature not in world.get_tile(old_pos).creatures
+    # Creature should be on new tile with updated position
+    assert creature in world.get_tile(new_pos).creatures
+    assert creature.position == new_pos
+    assert world.get_creature(0x40000001).position == new_pos
+
+
+def test_world_state_creature_movement_missing_tile_does_not_crash() -> None:
+    world = WorldState()
+    old_pos = Position(32000, 32000, 7)
+    new_pos = Position(32001, 32000, 7)
+
+    movement = CreatureMovement(
+        opcode=0x6D,
+        old_position=old_pos,
+        old_stackpos=0,
+        new_position=new_pos,
+    )
+    # Should not raise an exception even if tiles are not yet in state
+    world.apply_message(movement)
+    assert world.get_tile(old_pos) is None
+    assert world.get_tile(new_pos) is None
+
 
 def test_game_package_does_not_import_network() -> None:
     code = "import cipfried.game, sys; assert 'cipfried.network' not in sys.modules"

@@ -58,6 +58,10 @@ class Tile:
         creature.position = self.position
         self.creatures.append(creature)
 
+    def remove_creature(self, creature: Creature) -> None:
+        if creature in self.creatures:
+            self.creatures.remove(creature)
+
 
 __all__ = [
     "MAP_HEIGHT",
