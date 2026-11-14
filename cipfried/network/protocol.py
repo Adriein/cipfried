@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cipfried.network.frame import (
     MAX_BLOCK_COUNT,
     MAX_FRAME_SIZE,

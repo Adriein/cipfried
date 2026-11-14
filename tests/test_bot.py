@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import logging
 
-from cipfried.bot import log_creature_movement
-from cipfried.game import CreatureMovement, GameMessage, Position
+from cipfried.bot.listeners import log_creature_movement
+from cipfried.game.messages import CreatureMovement, GameMessage
+from cipfried.game.position import Position
 
 
 def test_log_creature_movement_logs_movement(caplog) -> None:

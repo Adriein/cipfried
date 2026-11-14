@@ -34,13 +34,16 @@ include = ["cipfried*"]
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-src = ["cipfried"]
+src = ["cipfried", "tests"]
 
 [tool.ruff.lint]
-select = ["B", "E", "F", "I", "UP"]
+select = ["B", "E", "F", "I", "UP", "TID252", "PLC0415"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
 [tool.ruff.lint.isort]
-known-first-party = ["cipfried"]
+known-first-party = ["cipfried", "tests"]
 
 [tool.mypy]
 python_version = "3.10"

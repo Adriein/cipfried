@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from cipfried.game.position import Position
-
-if TYPE_CHECKING:
-    from cipfried.game.tile import Tile
+from cipfried.game.tile import Tile
 
 
 @dataclass(frozen=True)
@@ -42,7 +41,7 @@ class OpenChannel(GameMessage):
 @dataclass(frozen=True)
 class FullMap(GameMessage):
     player_position: Position
-    tiles: tuple["Tile", ...] = ()
+    tiles: tuple[Tile, ...] = ()
 
 
 __all__ = ["CreatureMovement", "FullMap", "GameMessage", "LoginSuccess", "OpenChannel"]

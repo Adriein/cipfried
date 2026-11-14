@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 import logging
 import os
 
-from cipfried.analysis import MessagePipeline
-from cipfried.analysis.parsers import CreatureMoveParser, LoginSuccessParser, OpenChannelParser, WorldEnteredParser
-from cipfried.bot import log_creature_movement
+from cipfried.analysis.parsers.creature_move import CreatureMoveParser
+from cipfried.analysis.parsers.login_success import LoginSuccessParser
+from cipfried.analysis.parsers.open_channel import OpenChannelParser
+from cipfried.analysis.parsers.world_entered import WorldEnteredParser
+from cipfried.analysis.pipeline import MessagePipeline
+from cipfried.bot.listeners import log_creature_movement
 from cipfried.core.engine import Engine
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"

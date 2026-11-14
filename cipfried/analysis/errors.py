@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 class AnalysisError(Exception):
     """Base error for the packet analysis layer."""
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 from cipfried.analysis.opcodes import ServerOpcode
 from cipfried.analysis.parser import MessageParser

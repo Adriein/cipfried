@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from cipfried.core.engine import Engine
 from cipfried.network.key_provider import XteaKeyProvider
 from cipfried.network.protocol import TibiaPacket

@@ -1,11 +1,16 @@
+from __future__ import annotations
+
+import logging
 from dataclasses import dataclass
 
 import pytest
 
-from cipfried.analysis import ByteReader, MessagePipeline, TruncatedMessage
-from cipfried.analysis.errors import ParseError
+from cipfried.analysis.errors import ParseError, TruncatedMessage
 from cipfried.analysis.parsers.full_map import FullMapParser, expected_floors
-from cipfried.game import FullMap, GameMessage, Position
+from cipfried.analysis.pipeline import MessagePipeline
+from cipfried.analysis.reader import ByteReader
+from cipfried.game.messages import FullMap, GameMessage
+from cipfried.game.position import Position
 from cipfried.network.protocol import TibiaPacket
 
 
@@ -272,7 +277,6 @@ def test_full_map_parser_soft_check_warning(caplog: pytest.LogCaptureFixture) ->
 
     reader = ByteReader(payload)
     parser = FullMapParser()
-    import logging
     with caplog.at_level(logging.WARNING):
         parser.parse(reader)
 

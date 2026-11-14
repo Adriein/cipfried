@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 import cipfried.network.sniffer as sniffer_module

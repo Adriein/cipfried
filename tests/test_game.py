@@ -1,18 +1,14 @@
+from __future__ import annotations
+
 import subprocess
 import sys
 
-from cipfried.game import (
-    Creature,
-    CreatureMovement,
-    FullMap,
-    GameMessage,
-    Item,
-    LoginSuccess,
-    Position,
-    Tile,
-    WorldState,
-    tile_position_from_index,
-)
+from cipfried.game.creature import Creature
+from cipfried.game.item import Item
+from cipfried.game.messages import CreatureMovement, FullMap, GameMessage, LoginSuccess
+from cipfried.game.position import Position
+from cipfried.game.tile import Tile, tile_position_from_index
+from cipfried.game.world import WorldState
 
 
 def test_creature_movement_is_a_game_message() -> None:
