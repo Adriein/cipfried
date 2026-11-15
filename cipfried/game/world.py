@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import threading
 
 from cipfried.game.creature import Creature
 from cipfried.game.messages import CreatureMovement, FullMap, GameMessage, LoginSuccess
 from cipfried.game.position import Position
 from cipfried.game.tile import Tile
+
+logger = logging.getLogger(__name__)
 
 
 class WorldState:

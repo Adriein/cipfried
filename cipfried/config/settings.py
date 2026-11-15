@@ -10,6 +10,7 @@ DEFAULT_ACTIVE_TIMEOUT: Final[float] = 10.0
 DEFAULT_SERVER_CONFIRM_PACKETS: Final[int] = 2
 DEFAULT_MAX_PENDING_PACKETS: Final[int] = 256
 DEFAULT_RESCAN_INTERVAL: Final[float] = 30.0
+DEFAULT_BOT_TICK_INTERVAL: Final[float] = 0.05
 
 
 @dataclass(frozen=True)
@@ -21,10 +22,12 @@ class Settings:
     server_confirm_packets: int = DEFAULT_SERVER_CONFIRM_PACKETS
     max_pending_packets: int = DEFAULT_MAX_PENDING_PACKETS
     rescan_interval: float = DEFAULT_RESCAN_INTERVAL
+    bot_tick_interval: float = DEFAULT_BOT_TICK_INTERVAL
 
 
 __all__ = [
     "DEFAULT_ACTIVE_TIMEOUT",
+    "DEFAULT_BOT_TICK_INTERVAL",
     "DEFAULT_KEY_POLL_INTERVAL",
     "DEFAULT_MAX_PENDING_PACKETS",
     "DEFAULT_PACKET_QUEUE_SIZE",

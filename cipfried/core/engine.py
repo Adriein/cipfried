@@ -9,6 +9,7 @@ from collections.abc import Callable
 import keyboard
 
 from cipfried.analysis.pipeline import MessagePipeline
+from cipfried.bot.worker import BotWorker
 from cipfried.config.settings import DEFAULT_KEY_POLL_INTERVAL, DEFAULT_PACKET_QUEUE_SIZE
 from cipfried.core.constants import EngineCommand, GameState
 from cipfried.core.context import Context, State
@@ -32,6 +33,7 @@ class Engine:
         message_pipeline: MessagePipeline | None = None,
         packet_queue_size: int = DEFAULT_PACKET_QUEUE_SIZE,
         context: Context | None = None,
+        bot_worker: BotWorker | None = None,
     ) -> None:
         self._process = process if process is not None else Process(Memory())
         if context is not None:
@@ -41,6 +43,7 @@ class Engine:
             self._state = State()
             self._ctx = Context(game_state=self._state)
 
+        self._bot_worker = bot_worker
         self._stop_event = threading.Event()
         self._hotkey_handle: Callable[[], None] | None = None
         self._packet_queue: queue.Queue[TibiaPacket | None] = queue.Queue(maxsize=packet_queue_size)
@@ -57,6 +60,14 @@ class Engine:
     @property
     def context(self) -> Context:
         return self._ctx
+
+    @property
+    def bot_worker(self) -> BotWorker | None:
+        return self._bot_worker
+
+    @bot_worker.setter
+    def bot_worker(self, worker: BotWorker | None) -> None:
+        self._bot_worker = worker
 
     def start(self) -> None:
         if self._ctx.game_state.current != GameState.Stopped:
@@ -80,8 +91,12 @@ class Engine:
 
             self._ctx.game_state.current = GameState.Running
             logger.info("cipfried engine running (PID: %s).", self._process.pid)
+            if self._bot_worker is not None:
+                self._bot_worker.start()
             self._monitor_process()
         finally:
+            if self._bot_worker is not None:
+                self._bot_worker.stop()
             self._stop_key_watcher()
             self._xtea_key = None
             self._key_provider.reset()
@@ -122,6 +137,8 @@ class Engine:
                 continue
 
             logger.warning("%s process exited; waiting for restart...", self._process.name)
+            if self._bot_worker is not None:
+                self._bot_worker.stop()
             self._xtea_key = None
             self._key_provider.reset()
             self._sniffer.set_cipher(None)
@@ -138,6 +155,8 @@ class Engine:
                 return
 
             self._ctx.game_state.current = GameState.Running
+            if self._bot_worker is not None:
+                self._bot_worker.start()
             logger.info("cipfried engine running (PID: %s).", self._process.pid)
 
     def _start_sniffer(self) -> None:

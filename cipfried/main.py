@@ -9,7 +9,9 @@ from cipfried.analysis.parsers.login_success import LoginSuccessParser
 from cipfried.analysis.parsers.open_channel import OpenChannelParser
 from cipfried.analysis.parsers.world_entered import WorldEnteredParser
 from cipfried.analysis.pipeline import MessagePipeline
-from cipfried.bot.listeners import log_creature_movement
+from cipfried.bot.fsm import StateMachine
+from cipfried.bot.walker import IdleState
+from cipfried.bot.worker import BotWorker
 from cipfried.core.engine import Engine
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -29,10 +31,13 @@ def main() -> None:
     pipeline.register(LoginSuccessParser())
     pipeline.register(OpenChannelParser())
     pipeline.register(WorldEnteredParser())
-    pipeline.add_listener(log_creature_movement)
 
     engine = Engine(message_pipeline=pipeline)
     pipeline.add_listener(engine.context.world.apply_message)
+
+    fsm = StateMachine(initial_state=IdleState())
+    engine.bot_worker = BotWorker(context=engine.context, interval=50, on_tick=fsm.tick)
+
     engine.start()
 
 

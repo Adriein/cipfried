@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from cipfried.bot.worker import BotWorker
+from cipfried.core.context import Context, State
 from cipfried.core.engine import Engine
 from cipfried.network.key_provider import XteaKeyProvider
 from cipfried.network.protocol import TibiaPacket
@@ -267,3 +269,16 @@ def test_key_provider_reset_clears_cached_pid() -> None:
 
     assert provider._pid is None
     assert provider._addresses == ()
+
+
+def test_engine_bot_worker_property_and_lifecycle() -> None:
+    context = Context(game_state=State())
+    worker = BotWorker(context=context, interval=0.01)
+    engine = Engine(process=FakeProcess(), sniffer=FakeSniffer(), context=context, bot_worker=worker)  # type: ignore[arg-type]
+
+    assert engine.bot_worker is worker
+    assert not worker.is_running
+
+    new_worker = BotWorker(context=context, interval=0.02)
+    engine.bot_worker = new_worker
+    assert engine.bot_worker is new_worker

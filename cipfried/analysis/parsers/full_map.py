@@ -33,17 +33,16 @@ class FullMapParser(MessageParser):
     opcode: int = ServerOpcode.FULL_MAP
 
     def parse(self, reader: ByteReader) -> FullMap:
-        # Check 2: Never run past the buffer
         if reader.remaining < 5:
             raise TruncatedMessage("Payload ended before FullMap position header")
 
         player_pos = Position(x=reader.read_u16(), y=reader.read_u16(), z=reader.read_u8())
 
-        expected_total = TILES_PER_FLOOR * expected_floors(player_pos.z)
+        expected_tiles = TILES_PER_FLOOR * expected_floors(player_pos.z)
         tiles_seen = 0
         tiles: list[Tile] = []
 
-        while tiles_seen < expected_total:
+        while tiles_seen < expected_tiles:
             current_pos = tile_position_from_index(player_pos, tiles_seen)
             tile, skip = self._read_tile(reader, current_pos)
 
@@ -51,16 +50,15 @@ class FullMapParser(MessageParser):
 
             tiles_seen += 1 + skip
 
-            if tiles_seen > expected_total:
+            if tiles_seen > expected_tiles:
                 raise ParseError(
-                    f"Tile count overshot expected total: {tiles_seen} > {expected_total} "
+                    f"Tile count overshot expected total: {tiles_seen} > {expected_tiles} "
                     f"(skip count {skip} at offset {reader.position})"
                 )
 
-        if tiles_seen != expected_total:
-            raise ParseError(f"Tile count mismatch: seen {tiles_seen} != expected {expected_total}")
+        if tiles_seen != expected_tiles:
+            raise ParseError(f"Tile count mismatch: seen {tiles_seen} != expected {expected_tiles}")
 
-        # Check 5 (Soft check): Next byte should be 0x78 (inventory slot)
         if not reader.eof:
             next_op = reader.peek_u8()
             if next_op != EXPECTED_NEXT_OPCODE:
