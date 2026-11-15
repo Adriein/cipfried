@@ -3,35 +3,10 @@ from __future__ import annotations
 import logging
 
 from cipfried.bot.fsm import StateMachine
-from cipfried.bot.listeners import log_creature_movement
 from cipfried.bot.walker import IdleState, Pathfinder, WalkingState
 from cipfried.bot.worker import BotWorker
 from cipfried.core.context import Context, State
-from cipfried.game.messages import CreatureMovement, GameMessage
 from cipfried.game.position import Position
-
-
-def test_log_creature_movement_logs_movement(caplog) -> None:
-    movement = CreatureMovement(
-        opcode=0x6D,
-        old_position=Position(1, 2, 3),
-        old_stackpos=0,
-        new_position=Position(4, 5, 6),
-    )
-
-    with caplog.at_level(logging.INFO):
-        log_creature_movement(movement)
-
-    assert "Creature moved" in caplog.text
-    assert "Position(x=1, y=2, z=3)" in caplog.text
-    assert "Position(x=4, y=5, z=6)" in caplog.text
-
-
-def test_log_creature_movement_ignores_other_messages(caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        log_creature_movement(GameMessage(opcode=0x01))
-
-    assert caplog.text == ""
 
 
 def test_bot_worker_synchronous_stepping() -> None:
@@ -139,27 +114,27 @@ def test_bot_worker_state_machine_walk_vs_heal() -> None:
     assert bot.actions_taken == ["heal at 10.15"]
 
 
-def test_fsm_walker_integration_with_bot_worker(capsys) -> None:
+def test_fsm_walker_integration_with_bot_worker(caplog) -> None:
     ctx = Context(game_state=State())
     ctx.world.player_position = Position(32000, 32000, 7)
 
     fsm = StateMachine(initial_state=IdleState())
     worker = BotWorker(context=ctx, on_tick=fsm.tick)
 
-    # Tick 1: Idle state executes
-    worker.step(now=1.0)
-    assert isinstance(fsm.current_state, IdleState)
+    with caplog.at_level(logging.INFO):
+        # Tick 1: Idle state executes
+        worker.step(now=1.0)
+        assert isinstance(fsm.current_state, IdleState)
 
-    # Transition to WalkingState
-    goal = Position(32005, 32000, 7)
-    fsm.change_state(WalkingState(destination=goal), ctx)
-    assert isinstance(fsm.current_state, WalkingState)
-    assert fsm.current_state.path == [goal]
+        # Transition to WalkingState
+        goal = Position(32005, 32000, 7)
+        fsm.change_state(WalkingState(destination=goal), ctx)
+        assert isinstance(fsm.current_state, WalkingState)
+        assert fsm.current_state.path == [goal]
 
-    # Tick 2: Walking state executes
-    worker.step(now=1.05)
+        # Tick 2: Walking state executes
+        worker.step(now=1.05)
 
-    captured = capsys.readouterr().out
-    assert "[IdleState] Entered Idle state." in captured
-    assert "[WalkingState] Started walking towards Position(x=32005, y=32000, z=7)." in captured
-    assert "[WalkingState] Tick at 1.05. Steps remaining: 1." in captured
+    assert "[IdleState] Entered Idle state." in caplog.text
+    assert "[WalkingState] Started walking towards Position(x=32005, y=32000, z=7)." in caplog.text
+    assert "[WalkingState] Tick at 1.05. Steps remaining: 1." in caplog.text

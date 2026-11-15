@@ -34,6 +34,7 @@ class Engine:
         packet_queue_size: int = DEFAULT_PACKET_QUEUE_SIZE,
         context: Context | None = None,
         bot_worker: BotWorker | None = None,
+        session_logger: logging.Logger | None = None,
     ) -> None:
         self._process = process if process is not None else Process(Memory())
         if context is not None:
@@ -44,6 +45,7 @@ class Engine:
             self._ctx = Context(game_state=self._state)
 
         self._bot_worker = bot_worker
+        self._session_logger = session_logger
         self._stop_event = threading.Event()
         self._hotkey_handle: Callable[[], None] | None = None
         self._packet_queue: queue.Queue[TibiaPacket | None] = queue.Queue(maxsize=packet_queue_size)
@@ -292,48 +294,18 @@ class Engine:
 
     def _process_packet(self, packet: TibiaPacket) -> None:
         if self._message_pipeline is not None:
-            try:
-                self._message_pipeline.feed(packet)
-            except Exception:
-                logger.exception("Message pipeline failed processing packet seq=%d.", packet.sequence)
+            direction = "client" if packet.from_client else "server"
 
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-
-        direction = "client" if packet.from_client else "server"
-
-        if not packet.decrypted:
-            logger.debug(
-                "%s seq=%d encrypted=%d bytes compressed=%s",
-                direction,
-                packet.sequence,
-                len(packet.payload),
-                packet.compressed,
-            )
-            return
-
-        command = f"0x{packet.command:02X}" if packet.command is not None else "none"
-        logger.debug(
-            "%s seq=%d cmd=%s len=%d compressed=%s",
-            direction,
-            packet.sequence,
-            command,
-            len(packet.payload),
-            packet.compressed,
-        )
-
-        if packet.payload:
-            logger.debug("%s payload: %s", direction, packet.payload[:128].hex(" "))
-
-            # Skip those with only 1 byte because it's ping commands
-            if direction != "client" and len(packet.payload) > 1: 
-                with open("debug/floor_items.txt", "a") as f:
+            if direction != "client" and len(packet.payload) > 1:
+                if self._session_logger is not None:
                     cmd_hex = f"0x{packet.command:02X}"
                     payload_hex = packet.payload[1:].hex(" ")
+                    self._session_logger.debug("cmd: %s, payload: %s", cmd_hex, payload_hex)
 
-                    log_line = f"cmd: {cmd_hex}, payload: {payload_hex}\n"
-
-                    f.write(log_line)
+                try:
+                    self._message_pipeline.feed(packet)
+                except Exception:
+                    logger.exception("Message pipeline failed processing packet seq=%d.", packet.sequence)
 
     def _set_stop_handler(self) -> None:
         if self._hotkey_handle is not None:

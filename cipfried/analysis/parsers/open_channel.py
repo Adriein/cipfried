@@ -23,6 +23,8 @@ class OpenChannelParser(MessageParser):
         active_usr = reader.read_u16()
         invited_usr = reader.read_u16()
 
+        reader.skip(1)
+
         return OpenChannel(
             opcode=self.opcode,
             channel_id=chan_id,

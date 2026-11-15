@@ -33,31 +33,77 @@ class FullMapParser(MessageParser):
     opcode: int = ServerOpcode.FULL_MAP
 
     def parse(self, reader: ByteReader) -> FullMap:
+        start_pos = reader.position
         if reader.remaining < 5:
+            logger.debug(
+                "Buffer too short for header at offset %d (remaining %d < 5)",
+                start_pos,
+                reader.remaining,
+            )
             raise TruncatedMessage("Payload ended before FullMap position header")
 
         player_pos = Position(x=reader.read_u16(), y=reader.read_u16(), z=reader.read_u8())
+        floors = expected_floors(player_pos.z)
+        expected_tiles = TILES_PER_FLOOR * floors
 
-        expected_tiles = TILES_PER_FLOOR * expected_floors(player_pos.z)
         tiles_seen = 0
         tiles: list[Tile] = []
 
         while tiles_seen < expected_tiles:
+            tile_start_offset = reader.position
             current_pos = tile_position_from_index(player_pos, tiles_seen)
             tile, skip = self._read_tile(reader, current_pos)
 
             tiles.append(tile)
-
+            old_seen = tiles_seen
             tiles_seen += 1 + skip
 
+            if logger.isEnabledFor(logging.DEBUG):
+                has_content = tile.ground_id is not None or bool(tile.items) or bool(tile.creatures)
+                if has_content or skip > 0:
+                    logger.debug(
+                        "Tile %d/%d at %s (offset %d): ground=%s, items=%d, creatures=%d, skip=%d -> tiles_seen=%d",
+                        old_seen,
+                        expected_tiles,
+                        current_pos,
+                        tile_start_offset,
+                        f"0x{tile.ground_id:04X}" if tile.ground_id is not None else "None",
+                        len(tile.items),
+                        len(tile.creatures),
+                        skip,
+                        tiles_seen,
+                    )
+
             if tiles_seen > expected_tiles:
+                logger.debug(
+                    "Overshot: tiles_seen=%d > expected_tiles=%d (skip=%d) at offset %d",
+                    tiles_seen,
+                    expected_tiles,
+                    skip,
+                    reader.position,
+                )
                 raise ParseError(
                     f"Tile count overshot expected total: {tiles_seen} > {expected_tiles} "
                     f"(skip count {skip} at offset {reader.position})"
                 )
 
         if tiles_seen != expected_tiles:
+            logger.debug(
+                "Tile mismatch: tiles_seen=%d != expected_tiles=%d at offset %d",
+                tiles_seen,
+                expected_tiles,
+                reader.position,
+            )
             raise ParseError(f"Tile count mismatch: seen {tiles_seen} != expected {expected_tiles}")
+
+        logger.debug(
+            "Completed: parsed %d tiles (%d non-empty) for player at %s; reader at offset %d, %d bytes remaining",
+            len(tiles),
+            sum(1 for t in tiles if t.ground_id is not None or t.items or t.creatures),
+            player_pos,
+            reader.position,
+            reader.remaining,
+        )
 
         if not reader.eof:
             next_op = reader.peek_u8()
@@ -83,6 +129,12 @@ class FullMapParser(MessageParser):
 
         while True:
             if reader.remaining < 2:
+                logger.debug(
+                    "Truncated reading tile at %s (offset %d, remaining %d < 2)",
+                    position,
+                    reader.position,
+                    reader.remaining,
+                )
                 raise TruncatedMessage(f"Buffer ended unexpectedly while reading tile at offset {reader.position}")
 
             next_two = reader.peek_bytes(2)
@@ -108,6 +160,7 @@ class FullMapParser(MessageParser):
         return tile, skip
 
     def _read_creature(self, reader: ByteReader, position: Position) -> Creature:
+        creature_start_offset = reader.position
         if reader.remaining < 6:
             raise TruncatedMessage("Buffer ended before creature header")
         reader.skip(6)
@@ -122,6 +175,12 @@ class FullMapParser(MessageParser):
         name_len = reader.read_u16()
 
         if name_len > MAX_CREATURE_NAME_LEN:
+            logger.debug(
+                "Implausible creature name length %d at offset %d (max: %d)",
+                name_len,
+                reader.position - 2,
+                MAX_CREATURE_NAME_LEN,
+            )
             raise ParseError(f"Implausible creature name length {name_len} at offset {reader.position - 2}")
 
         if reader.remaining < name_len:
@@ -142,7 +201,7 @@ class FullMapParser(MessageParser):
 
         reader.skip(10)
 
-        return Creature(
+        creature = Creature(
             id=creature_id,
             name=creature_name,
             creature_type=creature_type,
@@ -151,6 +210,21 @@ class FullMapParser(MessageParser):
             speed=creature_speed,
             position=position,
         )
+
+        logger.debug(
+            "Parsed creature at %s (offset %d): id=0x%08X (%d), name=%r, type=%d, hp=%d%%, speed=%d, dir=%d",
+            position,
+            creature_start_offset,
+            creature_id,
+            creature_id,
+            creature_name,
+            creature_type,
+            health_percentage,
+            creature_speed,
+            facing_dir,
+        )
+
+        return creature
 
 
 __all__ = ["FullMapParser", "expected_floors"]
